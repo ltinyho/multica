@@ -43,19 +43,8 @@ import NetInfo from "@react-native-community/netinfo";
 import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { getToken } from "@/data/secure-storage";
+import { WS_URL } from "@/lib/urls";
 import { WSClient } from "./ws-client";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.VITE_API_URL;
-const EXPLICIT_WS_URL = process.env.EXPO_PUBLIC_WS_URL ?? process.env.VITE_WS_URL;
-
-if (!API_URL) {
-  // ApiClient already throws on this; keeping a defensive check here
-  // avoids a confusing "URL constructor failed" deep in WSClient.
-  throw new Error("EXPO_PUBLIC_API_URL or VITE_API_URL is not set");
-}
-
-// http(s)://host → ws(s)://host/ws
-const WS_URL = EXPLICIT_WS_URL ?? `${API_URL.replace(/^http/, "ws")}/ws`;
 
 const RealtimeContext = createContext<WSClient | null>(null);
 

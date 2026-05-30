@@ -37,6 +37,7 @@ import { useViewedIssuesStore } from "@/data/viewed-issues-store";
 import { useCommentSelectStore } from "@/data/comment-select-store";
 import { useReplyTargetStore } from "@/data/stores/reply-target-store";
 import { showActionSheetWithOptions } from "@/lib/action-sheet";
+import { WEB_URL } from "@/lib/urls";
 
 export default function IssueDetail() {
   // `highlight` + `h` come from inbox deep-link (apps/mobile/app/(app)/
@@ -107,15 +108,12 @@ export default function IssueDetail() {
   // the timeline list, not in this menu — one entry per action.
   const onPressMore = useCallback(() => {
     if (!issue || !wsSlug) return;
-    const webUrl = process.env.EXPO_PUBLIC_WEB_URL ?? process.env.VITE_APP_URL;
-    const issueLink = webUrl
-      ? `${webUrl}/${wsSlug}/issue/${issue.identifier}`
-      : null;
+    const issueLink = `${WEB_URL}/${wsSlug}/issue/${issue.identifier}`;
     const options: string[] = ["Cancel"];
     options.push(isPinned ? "Unpin" : "Pin");
     options.push("Edit details");
-    if (issueLink) options.push("Copy link");
-    if (issueLink) options.push("Open on web");
+    options.push("Copy link");
+    options.push("Open on web");
     options.push("Delete issue");
     const destructiveIndex = options.length - 1;
     showActionSheetWithOptions(

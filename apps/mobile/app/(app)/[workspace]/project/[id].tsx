@@ -37,6 +37,7 @@ import { useAuthStore } from "@/data/auth-store";
 import { useProjectRealtime } from "@/data/realtime/use-project-realtime";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { showActionSheetWithOptions } from "@/lib/action-sheet";
+import { WEB_URL } from "@/lib/urls";
 
 export default function ProjectDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -79,12 +80,11 @@ export default function ProjectDetail() {
 
   const onPressMore = () => {
     if (!project) return;
-    const wsUrl = process.env.EXPO_PUBLIC_WEB_URL ?? process.env.VITE_APP_URL;
     const options = [
       "Cancel",
       isPinned ? "Unpin" : "Pin",
       "Edit details",
-      ...(wsUrl ? ["Open on web"] : []),
+      "Open on web",
       "Delete",
     ];
     const destructiveIndex = options.length - 1;
@@ -108,8 +108,8 @@ export default function ProjectDetail() {
           if (wsSlug) router.push(`/${wsSlug}/project/${id}/edit`);
           return;
         }
-        if (label === "Open on web" && wsUrl) {
-          Linking.openURL(`${wsUrl}/${wsSlug}/projects/${id}`);
+        if (label === "Open on web") {
+          Linking.openURL(`${WEB_URL}/${wsSlug}/projects/${id}`);
           return;
         }
         if (i === destructiveIndex) {

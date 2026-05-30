@@ -29,6 +29,7 @@ import { useWorkspaceStore } from "@/data/workspace-store";
 import { useCommentSelectStore } from "@/data/comment-select-store";
 import { useReplyTargetStore } from "@/data/stores/reply-target-store";
 import { useActorLookup } from "@/data/use-actor-name";
+import { WEB_URL } from "@/lib/urls";
 import {
   useDeleteComment,
   useResolveComment,
@@ -56,8 +57,7 @@ export function useCommentLongPress(
     const isRoot = !entry.parent_id;
     const resolved = !!entry.resolved_at;
     const hasContent = !!entry.content;
-    const webUrl = process.env.EXPO_PUBLIC_WEB_URL ?? process.env.VITE_APP_URL;
-    const canCopyLink = !!(webUrl && wsSlug && issueIdentifier);
+    const canCopyLink = !!(wsSlug && issueIdentifier);
     const reactions = (entry.reactions ?? []) as Reaction[];
 
     Haptics.selectionAsync().catch(() => {});
@@ -160,7 +160,7 @@ export function useCommentLongPress(
             return;
           case "copyLink": {
             if (!canCopyLink) return;
-            const url = `${webUrl}/${wsSlug}/issue/${issueIdentifier}#comment-${entry.id}`;
+            const url = `${WEB_URL}/${wsSlug}/issue/${issueIdentifier}#comment-${entry.id}`;
             Clipboard.setStringAsync(url);
             Haptics.notificationAsync(
               Haptics.NotificationFeedbackType.Success,

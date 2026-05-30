@@ -16,6 +16,9 @@
     "ios:device:prod": "dotenv -e .env.production -- cross-env APP_ENV=production expo run:ios --device",
     "ios:device:prod:release": "dotenv -e .env.production -- cross-env APP_ENV=production expo run:ios --device --configuration Release",
     "android:apk:prod": "dotenv -e .env.production -- bash scripts/build-android-apk.sh",
+    "android:apk:prod:fg": "dotenv -e .env.production -- cross-env EXPO_APK_VARIANT=fg EXPO_ANDROID_INBOX_SERVICE=foreground bash scripts/build-android-apk.sh",
+    "android:apk:prod:nofg": "dotenv -e .env.production -- cross-env EXPO_APK_VARIANT=nofg EXPO_ANDROID_INBOX_SERVICE=none bash scripts/build-android-apk.sh",
+    "android:apk:official": "env -u EXPO_PUBLIC_API_URL -u EXPO_PUBLIC_WS_URL -u EXPO_PUBLIC_WEB_URL -u VITE_API_URL -u VITE_WS_URL -u VITE_APP_URL EXPO_NO_DOTENV=1 APP_ENV=production EXPO_APK_VARIANT=official EXPO_ANDROID_INBOX_SERVICE=none EXPO_USE_ENV_FILE=0 bash scripts/build-android-apk.sh",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit"
   },

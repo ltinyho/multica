@@ -1,0 +1,12 @@
+export const DEFAULT_API_URL = "https://api.multica.ai";
+export const DEFAULT_WS_URL = "wss://api.multica.ai/ws";
+export const DEFAULT_WEB_URL = "https://multica.ai";
+
+export const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ?? process.env.VITE_API_URL ?? DEFAULT_API_URL;
+
+export const WS_URL =
+  process.env.EXPO_PUBLIC_WS_URL ?? process.env.VITE_WS_URL ?? DEFAULT_WS_URL;
+
+export const WEB_URL =
+  process.env.EXPO_PUBLIC_WEB_URL ?? process.env.VITE_APP_URL ?? DEFAULT_WEB_URL;

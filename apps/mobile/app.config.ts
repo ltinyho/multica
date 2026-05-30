@@ -14,6 +14,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const isProd = env === "production";
   const isStaging = env === "staging";
   const version = process.env.EXPO_APP_VERSION ?? "0.1.0";
+  const inboxService = process.env.EXPO_ANDROID_INBOX_SERVICE ?? "foreground";
+  const enableAndroidForegroundInboxService = inboxService !== "none";
   const androidVersionCode = process.env.EXPO_ANDROID_VERSION_CODE
     ? Number(process.env.EXPO_ANDROID_VERSION_CODE)
     : 1;
@@ -68,7 +70,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "expo-router",
       "expo-secure-store",
       "expo-notifications",
-      "./plugins/with-foreground-inbox-service",
+      ...(enableAndroidForegroundInboxService
+        ? ["./plugins/with-foreground-inbox-service"]
+        : []),
       "@react-native-community/datetimepicker",
       "react-native-enriched-markdown",
       [

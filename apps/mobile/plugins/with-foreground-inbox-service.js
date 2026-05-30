@@ -80,9 +80,6 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import java.net.HttpURLConnection
 import java.net.URL
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.Executors
 import org.json.JSONArray
 
@@ -91,7 +88,6 @@ class InboxForegroundService : Service() {
   private val executor = Executors.newSingleThreadExecutor()
   private var isPolling = false
   private var wakeLock: PowerManager.WakeLock? = null
-  @Volatile private var foregroundStatus = "Starting inbox checks"
 
   private val pollRunnable = object : Runnable {
     override fun run() {
@@ -153,7 +149,6 @@ class InboxForegroundService : Service() {
     var connection: HttpURLConnection? = null
 
     try {
-      updateForegroundStatus("Checking inbox at ${"$"}{timeNow()}")
       val url = URL("$apiUrl/api/inbox")
       connection = (url.openConnection() as HttpURLConnection).apply {
         requestMethod = "GET"
@@ -169,53 +164,42 @@ class InboxForegroundService : Service() {
 
       val code = connection.responseCode
       if (code == HttpURLConnection.HTTP_UNAUTHORIZED) {
-        updateForegroundStatus("Unauthorized at ${"$"}{timeNow()}; stopping")
         prefs.edit().putBoolean(KEY_ACTIVE, false).apply()
         stopSelf()
         return
       }
       if (code !in 200..299) {
-        updateForegroundStatus("Inbox check failed HTTP ${"$"}code at ${"$"}{timeNow()}")
         return
       }
 
       val body = connection.inputStream.bufferedReader().use { it.readText() }
-      val result = notifyUnreadItems(JSONArray(body), prefs)
-      updateForegroundStatus(
-        "Last check ${"$"}{timeNow()}: unread ${"$"}{result.unreadCount}, new notifications ${"$"}{result.notifiedCount}",
-      )
+      notifyUnreadItems(JSONArray(body), prefs)
     } catch (err: Exception) {
-      updateForegroundStatus("Inbox check failed ${"$"}{err.javaClass.simpleName} at ${"$"}{timeNow()}")
     } finally {
       connection?.disconnect()
     }
   }
 
-  private fun notifyUnreadItems(items: JSONArray, prefs: SharedPreferences): PollResult {
+  private fun notifyUnreadItems(items: JSONArray, prefs: SharedPreferences) {
     val notified = prefs.getStringSet(KEY_NOTIFIED_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
     var changed = false
-    var unreadCount = 0
-    var notifiedCount = 0
 
     for (index in 0 until items.length()) {
       val item = items.optJSONObject(index) ?: continue
       val id = item.optString("id")
       if (item.optBoolean("read", false) || item.optBoolean("archived", false)) continue
-      unreadCount += 1
       if (id.isBlank() || notified.contains(id)) continue
 
       val title = item.optString("title").ifBlank { "New inbox message" }
       val body = item.optString("body").ifBlank { title }
       sendInboxNotification(id, title, body)
       notified.add(id)
-      notifiedCount += 1
       changed = true
     }
 
     if (changed) {
       prefs.edit().putStringSet(KEY_NOTIFIED_IDS, notified).apply()
     }
-    return PollResult(unreadCount, notifiedCount)
   }
 
   private fun sendInboxNotification(id: String, title: String, body: String) {
@@ -240,19 +224,12 @@ class InboxForegroundService : Service() {
     NotificationCompat.Builder(this, FOREGROUND_CHANNEL_ID)
       .setSmallIcon(applicationInfo.icon)
       .setContentTitle("Multica")
-      .setContentText(foregroundStatus)
-      .setStyle(NotificationCompat.BigTextStyle().bigText(foregroundStatus))
+      .setContentText("Checking inbox in the background")
       .setOngoing(true)
       .setSilent(true)
       .setContentIntent(launchIntent())
       .setPriority(NotificationCompat.PRIORITY_LOW)
       .build()
-
-  private fun updateForegroundStatus(status: String) {
-    foregroundStatus = status
-    val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    manager.notify(FOREGROUND_NOTIFICATION_ID, foregroundNotification())
-  }
 
   private fun acquireWakeLock() {
     val current = wakeLock
@@ -333,14 +310,6 @@ class InboxForegroundService : Service() {
     } catch (_: Exception) {
       "0.1.0"
     }
-
-  private fun timeNow(): String =
-    SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
-
-  private data class PollResult(
-    val unreadCount: Int,
-    val notifiedCount: Int,
-  )
 
   companion object {
     const val EXTRA_TOKEN = "token"

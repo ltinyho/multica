@@ -32,6 +32,9 @@ import {
 } from "./inbox-ws-updaters";
 import { notifyInboxItem } from "@/lib/notifications";
 
+const ENABLE_ANDROID_WS_INBOX_NOTIFICATIONS =
+  process.env.EXPO_PUBLIC_ANDROID_INBOX_SERVICE === "none";
+
 export function useInboxRealtime() {
   const qc = useQueryClient();
 
@@ -45,7 +48,10 @@ export function useInboxRealtime() {
         ws.on("inbox:new", (payload) => {
           invalidate();
 
-          if (Platform.OS !== "android") {
+          if (
+            Platform.OS !== "android" ||
+            ENABLE_ANDROID_WS_INBOX_NOTIFICATIONS
+          ) {
             void notifyInboxItem(payload.item).catch((err) => {
               console.warn(
                 "[notifications] failed to show inbox notification",
