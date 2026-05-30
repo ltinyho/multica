@@ -29,6 +29,7 @@ import {
   dropInboxItemsByIssue,
   patchInboxIssueStatus,
 } from "./inbox-ws-updaters";
+import { notifyInboxItem } from "@/lib/notifications";
 
 export function useInboxRealtime() {
   const qc = useQueryClient();
@@ -40,7 +41,12 @@ export function useInboxRealtime() {
 
       return [
         // Inbox-domain events: refetch the small inbox list.
-        ws.on("inbox:new", invalidate),
+        ws.on("inbox:new", (payload) => {
+          invalidate();
+          void notifyInboxItem(payload.item).catch((err) => {
+            console.warn("[notifications] failed to show inbox notification", err);
+          });
+        }),
         ws.on("inbox:read", invalidate),
         ws.on("inbox:archived", invalidate),
         ws.on("inbox:batch-read", invalidate),

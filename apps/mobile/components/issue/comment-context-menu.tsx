@@ -4,7 +4,7 @@
  * ring while the sheet is on screen).
  *
  * iOS-native first per apps/mobile/CLAUDE.md §UI components → waterfall step
- * 1: `ActionSheetIOS.showActionSheetWithOptions`. Zero custom layout, zero
+ * 1: `showActionSheetWithOptions`. Zero custom layout, zero
  * animation, zero overflow math, zero new deps.
  *
  * Item set (conditional, mirrors web's comment context menu):
@@ -18,7 +18,8 @@
  * first is still dismissing — the callback runs after dismissal completes.
  */
 import { useCallback, useState } from "react";
-import { ActionSheetIOS, Alert } from "react-native";
+import { Alert } from "react-native";
+import { showActionSheetWithOptions } from "@/lib/action-sheet";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -55,7 +56,7 @@ export function useCommentLongPress(
     const isRoot = !entry.parent_id;
     const resolved = !!entry.resolved_at;
     const hasContent = !!entry.content;
-    const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
+    const webUrl = process.env.EXPO_PUBLIC_WEB_URL ?? process.env.VITE_APP_URL;
     const canCopyLink = !!(webUrl && wsSlug && issueIdentifier);
     const reactions = (entry.reactions ?? []) as Reaction[];
 
@@ -99,7 +100,7 @@ export function useCommentLongPress(
       ? actions.findIndex((a) => a.kind === "delete")
       : undefined;
 
-    ActionSheetIOS.showActionSheetWithOptions(
+    showActionSheetWithOptions(
       {
         options,
         cancelButtonIndex,
@@ -216,7 +217,7 @@ function presentReactSheet(args: {
   const options = [...emojis, "More reactions…", "Cancel"];
   const cancelButtonIndex = options.length - 1;
 
-  ActionSheetIOS.showActionSheetWithOptions(
+  showActionSheetWithOptions(
     { options, cancelButtonIndex },
     (i) => {
       if (i === cancelButtonIndex) return;

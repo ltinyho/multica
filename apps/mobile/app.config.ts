@@ -13,6 +13,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const env = process.env.APP_ENV ?? "development";
   const isProd = env === "production";
   const isStaging = env === "staging";
+  const version = process.env.EXPO_APP_VERSION ?? "0.1.0";
+  const androidVersionCode = process.env.EXPO_ANDROID_VERSION_CODE
+    ? Number(process.env.EXPO_ANDROID_VERSION_CODE)
+    : 1;
 
   return {
     ...config,
@@ -22,7 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ? "Multica (Staging)"
         : "Multica (Dev)",
     slug: "multica-mobile",
-    version: "0.1.0",
+    version,
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     scheme: "multica",
@@ -47,9 +51,23 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           ? "ai.multica.mobile.staging"
           : (process.env.EXPO_BUNDLE_IDENTIFIER_DEV ?? "ai.multica.mobile.dev"),
     },
+    android: {
+      package: isProd
+        ? (process.env.EXPO_ANDROID_PACKAGE_PROD ?? "ai.multica.mobile")
+        : isStaging
+          ? "ai.multica.mobile.staging"
+          : (process.env.EXPO_ANDROID_PACKAGE_DEV ?? "ai.multica.mobile.dev"),
+      adaptiveIcon: {
+        foregroundImage: "./assets/icon.png",
+        backgroundColor: "#FFFFFF",
+      },
+      versionCode: androidVersionCode,
+      permissions: ["READ_MEDIA_IMAGES", "READ_EXTERNAL_STORAGE"],
+    },
     plugins: [
       "expo-router",
       "expo-secure-store",
+      "expo-notifications",
       "@react-native-community/datetimepicker",
       "react-native-enriched-markdown",
       [

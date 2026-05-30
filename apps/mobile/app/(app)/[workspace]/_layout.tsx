@@ -6,12 +6,14 @@ import { workspaceListOptions } from "@/data/queries/workspaces";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { RealtimeProvider } from "@/data/realtime/realtime-provider";
 import { useInboxRealtime } from "@/data/realtime/use-inbox-realtime";
+import { useInboxNotificationPoller } from "@/data/realtime/use-inbox-notification-poller";
 import { useIssuesRealtime } from "@/data/realtime/use-issues-realtime";
 import { useMyIssuesRealtime } from "@/data/realtime/use-my-issues-realtime";
 import { useChatSessionsRealtime } from "@/data/realtime/use-chat-sessions-realtime";
 import { useProjectsRealtime } from "@/data/realtime/use-projects-realtime";
 import { usePinsRealtime } from "@/data/realtime/use-pins-realtime";
 import { usePresenceRealtime } from "@/data/realtime/use-presence-realtime";
+import { useTaskNotificationsRealtime } from "@/data/realtime/use-task-notifications-realtime";
 import { useWorkspacePresencePrefetch } from "@/lib/use-workspace-presence-prefetch";
 import { ModalCloseButton } from "@/components/ui/modal-close-button";
 import { useNewIssueDraftResetOnWorkspaceChange } from "@/data/stores/new-issue-draft-store";
@@ -74,11 +76,13 @@ export const unstable_settings = { anchor: "(tabs)" } as const;
  */
 function RealtimeSubscriptions() {
   useInboxRealtime();
+  useInboxNotificationPoller();
   useIssuesRealtime();
   useMyIssuesRealtime();
   useChatSessionsRealtime();
   useProjectsRealtime();
   usePinsRealtime();
+  useTaskNotificationsRealtime();
   // Presence: warm the three queries up front so avatars don't flash a
   // dotless first render, and listen for daemon/agent/task events to keep
   // the runtime + snapshot caches fresh. See use-presence-realtime.ts for

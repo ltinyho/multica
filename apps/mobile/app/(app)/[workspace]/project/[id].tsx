@@ -14,15 +14,7 @@
  * a second tap).
  */
 import { useCallback } from "react";
-import {
-  ActionSheetIOS,
-  ActivityIndicator,
-  Alert,
-  Linking,
-  RefreshControl,
-  ScrollView,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,6 +36,7 @@ import { useCreatePin, useDeletePin } from "@/data/mutations/pins";
 import { useAuthStore } from "@/data/auth-store";
 import { useProjectRealtime } from "@/data/realtime/use-project-realtime";
 import { useWorkspaceStore } from "@/data/workspace-store";
+import { showActionSheetWithOptions } from "@/lib/action-sheet";
 
 export default function ProjectDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -86,7 +79,7 @@ export default function ProjectDetail() {
 
   const onPressMore = () => {
     if (!project) return;
-    const wsUrl = process.env.EXPO_PUBLIC_WEB_URL;
+    const wsUrl = process.env.EXPO_PUBLIC_WEB_URL ?? process.env.VITE_APP_URL;
     const options = [
       "Cancel",
       isPinned ? "Unpin" : "Pin",
@@ -95,7 +88,7 @@ export default function ProjectDetail() {
       "Delete",
     ];
     const destructiveIndex = options.length - 1;
-    ActionSheetIOS.showActionSheetWithOptions(
+    showActionSheetWithOptions(
       {
         options,
         cancelButtonIndex: 0,

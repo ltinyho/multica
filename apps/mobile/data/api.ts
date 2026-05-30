@@ -122,11 +122,11 @@ import { getCurrentSlug } from "./workspace-store";
 import { parseWithFallback } from "@/lib/parse-response";
 import { createRequestId } from "@/lib/request-id";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.VITE_API_URL;
 
 if (!API_URL) {
   throw new Error(
-    "EXPO_PUBLIC_API_URL is not set. Add it to apps/mobile/.env.development.local " +
+    "EXPO_PUBLIC_API_URL or VITE_API_URL is not set. Add it to apps/mobile/.env.development.local " +
       "(see apps/mobile/.env.staging for an example).",
   );
 }

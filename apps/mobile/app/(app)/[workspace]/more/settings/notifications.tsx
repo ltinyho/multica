@@ -7,18 +7,20 @@
  * stay in sync with web — they describe the same server-side semantics,
  * and divergent labels would violate behavioral parity (apps/mobile/CLAUDE.md).
  */
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import type {
   NotificationGroupKey,
   NotificationPreferences,
 } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { notificationPreferenceOptions } from "@/data/queries/notification-preferences";
 import { useUpdateNotificationPreferences } from "@/data/mutations/notification-preferences";
+import { sendTestNotification } from "@/lib/notifications";
 
 const INBOX_GROUPS: Array<{
   key: Exclude<NotificationGroupKey, "system_notifications">;
@@ -70,6 +72,19 @@ export default function NotificationsSettingsScreen() {
       next[key] = "muted";
     }
     mutation.mutate(next);
+  };
+
+  const onSendTestNotification = async () => {
+    try {
+      await sendTestNotification();
+    } catch (err) {
+      Alert.alert(
+        "Notifications disabled",
+        err instanceof Error
+          ? err.message
+          : "Enable notifications for Multica in system settings and try again.",
+      );
+    }
   };
 
   const systemEnabled = preferences.system_notifications !== "muted";
@@ -145,6 +160,20 @@ export default function NotificationsSettingsScreen() {
               onToggle("system_notifications", checked)
             }
           />
+        </View>
+        <Separator />
+        <View className="px-4 py-3 gap-3">
+          <View>
+            <Text className="text-base font-medium text-foreground">
+              Test notification
+            </Text>
+            <Text className="text-xs text-muted-foreground mt-0.5">
+              Send a local system notification to this device.
+            </Text>
+          </View>
+          <Button variant="outline" onPress={onSendTestNotification}>
+            <Text>Send test notification</Text>
+          </Button>
         </View>
       </Section>
     </ScrollView>

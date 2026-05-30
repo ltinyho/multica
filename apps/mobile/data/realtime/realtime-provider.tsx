@@ -13,8 +13,12 @@
  * Workspace switch → unmount/remount → fresh client with the new slug.
  *
  * Lifecycle signals:
- *   AppState 'background'  → pause socket (iOS will kill it anyway; clean
- *                            close avoids a kernel-level reset on resume)
+ *   AppState 'background'  → pause socket on iOS (iOS will kill it anyway;
+ *                            clean close avoids a kernel-level reset on
+ *                            resume). Android keeps the socket open
+ *                            best-effort so local inbox notifications can
+ *                            fire while recently backgrounded; true
+ *                            killed-app delivery needs push.
  *   AppState 'active'      → resume socket
  *   AppState 'inactive'    → ignore (transient: app switcher / Control
  *                            Center / incoming call — tearing down here
@@ -34,23 +38,24 @@ import {
   useRef,
   useState,
 } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState, Platform, type AppStateStatus } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { getToken } from "@/data/secure-storage";
 import { WSClient } from "./ws-client";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.VITE_API_URL;
+const EXPLICIT_WS_URL = process.env.EXPO_PUBLIC_WS_URL ?? process.env.VITE_WS_URL;
 
 if (!API_URL) {
   // ApiClient already throws on this; keeping a defensive check here
   // avoids a confusing "URL constructor failed" deep in WSClient.
-  throw new Error("EXPO_PUBLIC_API_URL is not set");
+  throw new Error("EXPO_PUBLIC_API_URL or VITE_API_URL is not set");
 }
 
 // http(s)://host → ws(s)://host/ws
-const WS_URL = `${API_URL.replace(/^http/, "ws")}/ws`;
+const WS_URL = EXPLICIT_WS_URL ?? `${API_URL.replace(/^http/, "ws")}/ws`;
 
 const RealtimeContext = createContext<WSClient | null>(null);
 
@@ -106,7 +111,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             // it silently). Either way: resume / force-reconnect.
             ws?.resume();
             ws?.forceReconnect();
-          } else if (status === "background") {
+          } else if (status === "background" && Platform.OS === "ios") {
             ws?.pause();
           }
           // 'inactive' (iOS-only, transient) → ignore.

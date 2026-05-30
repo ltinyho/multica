@@ -14,8 +14,10 @@ import { queryClient } from "@/data/query-client";
 import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { LightboxProvider, prewarmHighlighter } from "@/lib/markdown";
+import { ActionSheetHost } from "@/lib/action-sheet";
 import { NAV_THEME } from "@/lib/theme";
 import { useColorScheme } from "@/lib/use-color-scheme";
+import { requestNotificationPermissionOnce } from "@/lib/notifications";
 
 // Kick off Shiki highlighter init at module load — fires once per process,
 // finishes before the user navigates to any screen with a code block. If
@@ -52,6 +54,9 @@ function AuthInitializer({ children }: { children: React.ReactNode }) {
       },
     });
     initialize();
+    void requestNotificationPermissionOnce().catch((err) => {
+      console.warn("[notifications] permission request failed", err);
+    });
   }, [initialize, qc]);
 
   return <>{children}</>;
@@ -74,6 +79,7 @@ export default function RootLayout() {
                     <Stack.Screen name="(app)" />
                   </Stack>
                   <PortalHost />
+                  <ActionSheetHost />
                 </LightboxProvider>
               </AuthInitializer>
             </ThemeProvider>
