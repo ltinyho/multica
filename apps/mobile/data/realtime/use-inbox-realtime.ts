@@ -23,6 +23,7 @@
  * no replay buffer in v1).
  */
 import { useQueryClient } from "@tanstack/react-query";
+import { Platform } from "react-native";
 import { inboxKeys } from "@/data/queries/inbox";
 import { useWSSubscriptions } from "@/lib/use-ws-subscriptions";
 import {
@@ -43,9 +44,15 @@ export function useInboxRealtime() {
         // Inbox-domain events: refetch the small inbox list.
         ws.on("inbox:new", (payload) => {
           invalidate();
-          void notifyInboxItem(payload.item).catch((err) => {
-            console.warn("[notifications] failed to show inbox notification", err);
-          });
+
+          if (Platform.OS !== "android") {
+            void notifyInboxItem(payload.item).catch((err) => {
+              console.warn(
+                "[notifications] failed to show inbox notification",
+                err,
+              );
+            });
+          }
         }),
         ws.on("inbox:read", invalidate),
         ws.on("inbox:archived", invalidate),
