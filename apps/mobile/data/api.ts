@@ -122,7 +122,7 @@ import { getCurrentSlug } from "./workspace-store";
 import { parseWithFallback } from "@/lib/parse-response";
 import { createRequestId } from "@/lib/request-id";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.VITE_API_URL;
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.VITE_API_URL;
 
 if (!API_URL) {
   throw new Error(

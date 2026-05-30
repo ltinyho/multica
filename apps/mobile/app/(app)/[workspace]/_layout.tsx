@@ -15,6 +15,7 @@ import { usePinsRealtime } from "@/data/realtime/use-pins-realtime";
 import { usePresenceRealtime } from "@/data/realtime/use-presence-realtime";
 import { useTaskNotificationsRealtime } from "@/data/realtime/use-task-notifications-realtime";
 import { useWorkspacePresencePrefetch } from "@/lib/use-workspace-presence-prefetch";
+import { useForegroundInboxService } from "@/lib/use-foreground-inbox-service";
 import { ModalCloseButton } from "@/components/ui/modal-close-button";
 import { useNewIssueDraftResetOnWorkspaceChange } from "@/data/stores/new-issue-draft-store";
 import { useNewProjectDraftResetOnWorkspaceChange } from "@/data/stores/new-project-draft-store";
@@ -75,6 +76,7 @@ export const unstable_settings = { anchor: "(tabs)" } as const;
  * Add new realtime feature hooks here as they land (issue, chat, etc).
  */
 function RealtimeSubscriptions() {
+  useForegroundInboxService();
   useInboxRealtime();
   useInboxNotificationPoller();
   useIssuesRealtime();

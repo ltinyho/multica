@@ -8,7 +8,7 @@
  * session, schedule a system notification.
  */
 import { useEffect, useRef } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState, Platform, type AppStateStatus } from "react-native";
 import type { InboxItem } from "@multica/core/types";
 import { api } from "@/data/api";
 import { inboxKeys } from "@/data/queries/inbox";
@@ -29,6 +29,7 @@ export function useInboxNotificationPoller() {
   }, [wsId]);
 
   useEffect(() => {
+    if (Platform.OS === "android") return;
     if (!wsId) return;
 
     let cancelled = false;

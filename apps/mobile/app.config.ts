@@ -68,6 +68,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "expo-router",
       "expo-secure-store",
       "expo-notifications",
+      "./plugins/with-foreground-inbox-service",
       "@react-native-community/datetimepicker",
       "react-native-enriched-markdown",
       [
