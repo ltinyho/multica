@@ -56,6 +56,9 @@ export interface WSClientOptions {
   workspaceSlug: string;
   /** Mobile app version, surfaced to server logs for debuggability. */
   clientVersion?: string;
+  /** Client OS — "ios" or "android". Sent as query param for server-side
+   *  analytics. Defaults to "ios" for backwards compatibility. */
+  clientOS?: string;
   logger?: Logger;
 }
 
@@ -188,7 +191,7 @@ export class WSClient {
     const url = new URL(this.opts.url);
     url.searchParams.set("workspace_slug", this.opts.workspaceSlug);
     url.searchParams.set("client_platform", "mobile");
-    url.searchParams.set("client_os", "ios");
+    url.searchParams.set("client_os", this.opts.clientOS ?? "ios");
     if (this.opts.clientVersion) {
       url.searchParams.set("client_version", this.opts.clientVersion);
     }

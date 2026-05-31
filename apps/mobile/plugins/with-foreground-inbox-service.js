@@ -321,7 +321,7 @@ class InboxForegroundService : Service() {
     const val KEY_WORKSPACE_SLUG = "workspaceSlug"
     const val KEY_API_URL = "apiUrl"
     const val KEY_NOTIFIED_IDS = "notifiedIds"
-    private const val POLL_INTERVAL_MS = 5_000L
+    private const val POLL_INTERVAL_MS = 30_000L
     private const val FOREGROUND_NOTIFICATION_ID = 4001
     private const val FOREGROUND_CHANNEL_ID = "multica_foreground_service"
     private const val INBOX_CHANNEL_ID = "multica_inbox_alerts_v2"

@@ -101,11 +101,9 @@ export default function IssueDetail() {
   const createPin = useCreatePin();
   const deletePin = useDeletePin();
 
-  // Three-dot menu: Pin/Unpin / Copy link / Open on web (if web URL set) /
-  // Delete. Mirrors apps/mobile/app/(app)/[workspace]/project/[id].tsx — same
-  // Cross-platform action sheet + Alert.alert confirm pattern. Property edits (status,
-  // priority, assignee, due_date) live on the IssueHeaderCard chips inside
-  // the timeline list, not in this menu — one entry per action.
+  // Three-dot menu in the header (visible when scrolled down):
+  // full action list. The action bar's "More" button uses a trimmed
+  // version that skips actions already visible in the bar.
   const onPressMore = useCallback(() => {
     if (!issue || !wsSlug) return;
     const issueLink = `${WEB_URL}/${wsSlug}/issue/${issue.identifier}`;
@@ -145,6 +143,34 @@ export default function IssueDetail() {
       },
     );
   }, [issue, wsSlug, deleteIssue, isPinned, createPin, deletePin]);
+
+  // Overflow menu for the action bar's "More" button — skips actions
+  // already visible as dedicated buttons (Pin, Copy link, Open on web).
+  const onPressMoreOverflow = useCallback(() => {
+    if (!issue || !wsSlug) return;
+    const options: string[] = ["Cancel", "Edit details", "Delete issue"];
+    const destructiveIndex = options.length - 1;
+    showActionSheetWithOptions(
+      {
+        options,
+        cancelButtonIndex: 0,
+        destructiveButtonIndex: destructiveIndex,
+        title: issue.identifier,
+      },
+      (i) => {
+        const label = options[i];
+        if (label === "Edit details") {
+          router.push(`/${wsSlug}/issue/${issue.id}/edit`);
+        } else if (label === "Delete issue") {
+          confirmDelete(issue, () =>
+            deleteIssue.mutate(issue.id, {
+              onSuccess: () => router.back(),
+            }),
+          );
+        }
+      },
+    );
+  }, [issue, wsSlug, deleteIssue]);
 
   return (
     <View className="flex-1 bg-background">
@@ -193,6 +219,8 @@ export default function IssueDetail() {
             timelineLoading={timeline.isLoading}
             refreshing={detail.isRefetching || timeline.isRefetching}
             onRefresh={onRefresh}
+            isPinned={isPinned}
+            onMore={onPressMoreOverflow}
             highlightCommentId={highlight}
             highlightNonce={h}
           />

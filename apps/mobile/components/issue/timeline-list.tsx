@@ -90,6 +90,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Issue, TimelineEntry } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { IssueHeaderCard } from "./issue-header-card";
+import { IssueActionBar } from "./issue-action-bar";
 import { IssueDescription } from "./issue-description";
 import { IssueReactionRow } from "./issue-reaction-row";
 import { ActivityRow } from "./activity-row";
@@ -107,6 +108,10 @@ interface Props {
   timelineLoading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
+  /** Whether the issue is pinned by the current user. */
+  isPinned: boolean;
+  /** Opens the overflow action sheet (Edit details, Delete). */
+  onMore: () => void;
   /** Inbox deep-link target. Root comment id OR reply id — replies live
    *  inline inside their parent's CommentCard, so a reply target scrolls
    *  to the parent's row and the card highlights the matching child. */
@@ -140,6 +145,8 @@ export function TimelineList({
   timelineLoading,
   refreshing,
   onRefresh,
+  isPinned,
+  onMore,
   highlightCommentId,
   highlightNonce,
 }: Props) {
@@ -327,6 +334,12 @@ export function TimelineList({
   const ListHeader = (
     <View>
       <IssueHeaderCard issue={issue} />
+      <IssueActionBar
+        issueId={issue.id}
+        issueIdentifier={issue.identifier}
+        isPinned={isPinned}
+        onMore={onMore}
+      />
       <IssueDescription issueId={issue.id} description={issue.description} />
       <IssueReactionRow issue={issue} />
       <View className="px-4 pt-4 pb-2 border-t border-border/60">

@@ -65,6 +65,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   // wifi strength changes, type changes, etc).
   const lastConnectedRef = useRef<boolean | null>(null);
 
+  // Android background pause timer — the foreground service already covers
+  // background inbox delivery, so keeping the socket open is redundant and
+  // prevents the radio from entering low-power mode.
+  const androidBgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (!userId || !wsSlug) {
       setClient(null);
@@ -85,6 +90,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         token,
         workspaceSlug: wsSlug,
         clientVersion: "0.1.0",
+        clientOS: Platform.OS,
         logger: console,
       });
       ws.connect();
@@ -98,10 +104,24 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             // Foreground. The socket may have been paused (we put it
             // there on background) or it may be a zombie (iOS killed
             // it silently). Either way: resume / force-reconnect.
+            if (androidBgTimerRef.current) {
+              clearTimeout(androidBgTimerRef.current);
+              androidBgTimerRef.current = null;
+            }
             ws?.resume();
             ws?.forceReconnect();
-          } else if (status === "background" && Platform.OS === "ios") {
-            ws?.pause();
+          } else if (status === "background") {
+            if (Platform.OS === "ios") {
+              ws?.pause();
+            } else {
+              // Android: pause after 2 min. The foreground service handles
+              // background inbox polling; keeping the socket open just
+              // drains battery by holding the radio in high-power mode.
+              androidBgTimerRef.current = setTimeout(() => {
+                androidBgTimerRef.current = null;
+                ws?.pause();
+              }, 120_000);
+            }
           }
           // 'inactive' (iOS-only, transient) → ignore.
         },
@@ -125,6 +145,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
+      if (androidBgTimerRef.current) {
+        clearTimeout(androidBgTimerRef.current);
+        androidBgTimerRef.current = null;
+      }
       appStateSub?.remove();
       netInfoUnsub?.();
       ws?.disconnect();

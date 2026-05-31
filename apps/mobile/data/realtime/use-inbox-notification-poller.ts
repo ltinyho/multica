@@ -16,7 +16,7 @@ import { useWorkspaceStore } from "@/data/workspace-store";
 import { notifyUnreadInboxItems } from "@/lib/notifications";
 import { useQueryClient } from "@tanstack/react-query";
 
-const POLL_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_MS = 30_000;
 
 export function useInboxNotificationPoller() {
   const qc = useQueryClient();
