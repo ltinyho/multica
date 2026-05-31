@@ -40,11 +40,11 @@ interface Props {
 
 export function IssueRow({ issue, onPress, showStatus = false }: Props) {
   return (
-    <Pressable onPress={onPress} className="active:bg-secondary px-4 py-3">
+    <Pressable onPress={onPress} className="active:bg-secondary/60 px-4 py-3.5">
       <View className="flex-row items-center gap-3">
         {showStatus ? <StatusIcon status={issue.status} size={14} /> : null}
         <PriorityIcon priority={issue.priority} size={14} />
-        <Text className="text-xs text-muted-foreground shrink-0 w-16">
+        <Text className="text-xs text-muted-foreground shrink-0 w-16 font-medium">
           {issue.identifier}
         </Text>
         <Text className="flex-1 text-sm text-foreground" numberOfLines={1}>
@@ -54,7 +54,7 @@ export function IssueRow({ issue, onPress, showStatus = false }: Props) {
           <ActorAvatar
             type={issue.assignee_type}
             id={issue.assignee_id}
-            size={20}
+            size={22}
             showPresence
           />
         ) : null}

@@ -69,7 +69,7 @@ export function AgentActivityRow({ issueId }: Props) {
           params: { workspace: wsSlug, id: issueId },
         });
       }}
-      className="flex-row items-center gap-2 -mx-2 px-2 py-2 rounded-lg active:bg-secondary"
+      className="flex-row items-center gap-2 -mx-2 px-2 py-2 rounded-lg active:bg-secondary/60"
     >
       {activeCount > 0 ? (
         <ActiveContent

@@ -139,7 +139,7 @@ export function ActivityRow({ entry }: { entry: TimelineEntry }) {
         ) : null}
       </Text>
       {showCoalesceBadge ? (
-        <View className="bg-muted rounded px-1.5 py-0.5 shrink-0">
+        <View className="bg-muted/80 rounded-full px-2 py-0.5 shrink-0">
           <Text className="text-xs font-medium text-muted-foreground tabular-nums">
             ×{entry.coalesced_count}
           </Text>

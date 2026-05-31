@@ -71,16 +71,16 @@ export function ReactionBar({
           key={g.emoji}
           onPress={() => onToggle(g.emoji)}
           className={cn(
-            "flex-row items-center gap-1 rounded-full border px-2 py-0.5",
+            "flex-row items-center gap-1 rounded-full px-2.5 py-1",
             g.reacted
-              ? "border-brand/30 bg-brand/10"
-              : "border-border bg-background",
+              ? "bg-brand/15 border border-brand/25"
+              : "bg-secondary/60 border border-border/50",
           )}
         >
           <Text className="text-xs">{g.emoji}</Text>
           <Text
             className={cn(
-              "text-xs tabular-nums",
+              "text-xs tabular-nums font-medium",
               g.reacted ? "text-brand" : "text-muted-foreground",
             )}
           >

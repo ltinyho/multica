@@ -147,7 +147,7 @@ function MentionChipView({
   const label = mention.type === "issue" ? mention.name : `@${mention.name}`;
 
   return (
-    <View className="flex-row items-center gap-1 h-7 px-2 rounded-full bg-primary/10">
+    <View className="flex-row items-center gap-1.5 h-7 px-2.5 rounded-full bg-primary/15">
       <Ionicons name={iconName} size={12} color={theme.primary} />
       <Text className="text-xs font-medium text-foreground">{label}</Text>
       <Pressable
@@ -213,7 +213,7 @@ function AttachmentChipView({ item, onRemove, onRetry }: AttachmentChipProps) {
           ? `Retry upload of ${item.filename}`
           : `Open ${item.filename}`
       }
-      className="flex-row items-center gap-1 h-7 px-2 rounded-full bg-secondary active:opacity-80"
+      className="flex-row items-center gap-1.5 h-7 px-2.5 rounded-full bg-secondary/80 active:opacity-80"
     >
       {item.status === "uploading" ? (
         <ActivityIndicator size="small" color={theme.mutedForeground} />

@@ -560,6 +560,7 @@ function FailedActions({
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel="Retry sending comment"
+        className="px-2.5 py-1 rounded-full bg-primary/10 active:opacity-70"
       >
         <Text className="text-xs text-primary font-medium">Retry</Text>
       </Pressable>
@@ -568,6 +569,7 @@ function FailedActions({
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel="Discard failed comment"
+        className="px-2.5 py-1 rounded-full bg-secondary active:opacity-70"
       >
         <Text className="text-xs text-muted-foreground font-medium">
           Discard

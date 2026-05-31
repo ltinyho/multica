@@ -329,8 +329,8 @@ export function TimelineList({
       <IssueHeaderCard issue={issue} />
       <IssueDescription issueId={issue.id} description={issue.description} />
       <IssueReactionRow issue={issue} />
-      <View className="px-4 pt-4 pb-2 border-t border-border">
-        <Text className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+      <View className="px-4 pt-4 pb-2 border-t border-border/60">
+        <Text className="text-xs uppercase tracking-wider text-muted-foreground/80 font-semibold">
           Activity
         </Text>
       </View>
@@ -466,12 +466,12 @@ function RowSeparator() {
  */
 function UnreadDivider() {
   return (
-    <View className="flex-row items-center gap-2 px-4">
-      <View className="flex-1 h-px bg-destructive/40" />
-      <Text className="text-[10px] uppercase tracking-wider font-medium text-destructive">
+    <View className="flex-row items-center gap-3 px-4">
+      <View className="flex-1 h-px bg-destructive/30" />
+      <Text className="text-[10px] uppercase tracking-wider font-semibold text-destructive">
         New
       </Text>
-      <View className="flex-1 h-px bg-destructive/40" />
+      <View className="flex-1 h-px bg-destructive/30" />
     </View>
   );
 }
@@ -499,21 +499,21 @@ function NewCommentChip({
   return (
     <Pressable
       onPress={onPress}
-      className="absolute bottom-3 self-center px-3.5 py-1.5 rounded-full bg-primary active:opacity-80 flex-row items-center gap-1.5"
+      className="absolute bottom-3 self-center px-4 py-2 rounded-full bg-primary active:opacity-80 flex-row items-center gap-2"
       accessibilityRole="button"
       accessibilityLabel={`Jump to ${count} new ${count === 1 ? "message" : "messages"}`}
       style={{
         // shadow comes from system, not Tailwind — keeps the chip readable
         // against either light or dark timeline content beneath.
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.18,
-        shadowRadius: 6,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
       }}
     >
       <Ionicons name="arrow-down" size={14} color={fg} />
-      <Text className="text-xs font-semibold text-primary-foreground">
+      <Text className="text-sm font-semibold text-primary-foreground">
         {count} new
       </Text>
     </Pressable>

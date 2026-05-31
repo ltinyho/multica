@@ -51,7 +51,7 @@ export function AgentHeaderBadge({ issueId }: Props) {
       }}
       hitSlop={8}
       accessibilityLabel="Agent working — open runs"
-      className="flex-row items-center gap-1.5 px-2 py-1 active:opacity-60"
+      className="flex-row items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/60 active:opacity-60"
     >
       <AvatarStack actors={actors} max={2} size={20} />
       <PulseDot size={6} />

@@ -20,7 +20,7 @@ import { AgentActivityRow } from "./agent-activity-row";
 export function IssueHeaderCard({ issue }: { issue: Issue }) {
   return (
     <View className="px-4 pt-4 pb-3 gap-3">
-      <Text className="text-xs text-muted-foreground">{issue.identifier}</Text>
+      <Text className="text-xs text-muted-foreground font-medium">{issue.identifier}</Text>
       <Text className="text-2xl font-bold text-foreground">
         {issue.title}
       </Text>
