@@ -23,9 +23,9 @@ multica-nofg-0.1.0-nofg-20260530213330.apk
 multica-official-0.1.0-official-20260530214100.apk
 ```
 
-The app package id remains `ai.multica.mobile`, so these APKs replace each other
-when installed. Uninstall or install over the previous build depending on what
-you want to test.
+The official APK uses package id `ai.multica.mobile`. Self-host variants (`fg`,
+`nofg`) use `ai.multica.mobile.selfhost`, so the official and self-host apps can
+be installed side by side. The two self-host variants still replace each other.
 
 ## URLs
 
@@ -177,11 +177,12 @@ APK=/home/ltinyho/Downloads/multica-fg-0.1.0-fg-YYYYMMDDHHMMSS.apk
 /home/ltinyho/Android/Sdk/build-tools/36.0.0/apksigner verify --verbose "$APK"
 ```
 
-Expected permission differences:
+Expected differences:
 
 - `fg` includes `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_DATA_SYNC`.
 - `nofg` and `official` do not include foreground service permissions.
 - All variants include `POST_NOTIFICATIONS`, `INTERNET`, and `VIBRATE`.
+- `official` package: `ai.multica.mobile`; self-host (`fg`/`nofg`) package: `ai.multica.mobile.selfhost`.
 
 For `official`, also verify the bundle does not contain self-host domains:
 

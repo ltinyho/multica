@@ -19,6 +19,7 @@ export APP_ENV="${APP_ENV:-production}"
 export NODE_ENV="${NODE_ENV:-production}"
 export EXPO_APP_VERSION="$app_version"
 export EXPO_ANDROID_VERSION_CODE="$version_code"
+export EXPO_APK_VARIANT="$apk_variant"
 export EXPO_ANDROID_INBOX_SERVICE="$inbox_service"
 export EXPO_PUBLIC_ANDROID_INBOX_SERVICE="$inbox_service"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
@@ -36,7 +37,8 @@ pnpm -C "$MOBILE_DIR" exec expo prebuild --platform android --no-install --clean
 
 (
   cd "$ANDROID_DIR"
-  ./gradlew assembleRelease
+  architectures="${EXPO_ANDROID_ARCHITECTURES:-arm64-v8a}"
+  ./gradlew assembleRelease -PreactNativeArchitectures="$architectures"
 )
 
 apk_name="multica-$apk_variant-$app_version.apk"
