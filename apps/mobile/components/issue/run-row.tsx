@@ -107,9 +107,9 @@ function CancelButton({
     <Pressable
       onPress={onPress}
       disabled={mutation.isPending}
-      className="px-3 py-1.5 rounded-md bg-secondary active:opacity-70"
+      className="px-3 py-1.5 rounded-full bg-destructive/10 active:opacity-70"
     >
-      <Text className="text-xs font-medium text-foreground">Cancel</Text>
+      <Text className="text-xs font-medium text-destructive">Cancel</Text>
     </Pressable>
   );
 }

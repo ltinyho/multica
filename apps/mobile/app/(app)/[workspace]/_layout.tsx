@@ -6,13 +6,16 @@ import { workspaceListOptions } from "@/data/queries/workspaces";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { RealtimeProvider } from "@/data/realtime/realtime-provider";
 import { useInboxRealtime } from "@/data/realtime/use-inbox-realtime";
+import { useInboxNotificationPoller } from "@/data/realtime/use-inbox-notification-poller";
 import { useIssuesRealtime } from "@/data/realtime/use-issues-realtime";
 import { useMyIssuesRealtime } from "@/data/realtime/use-my-issues-realtime";
 import { useChatSessionsRealtime } from "@/data/realtime/use-chat-sessions-realtime";
 import { useProjectsRealtime } from "@/data/realtime/use-projects-realtime";
 import { usePinsRealtime } from "@/data/realtime/use-pins-realtime";
 import { usePresenceRealtime } from "@/data/realtime/use-presence-realtime";
+import { useTaskNotificationsRealtime } from "@/data/realtime/use-task-notifications-realtime";
 import { useWorkspacePresencePrefetch } from "@/lib/use-workspace-presence-prefetch";
+import { useForegroundInboxService } from "@/lib/use-foreground-inbox-service";
 import { ModalCloseButton } from "@/components/ui/modal-close-button";
 import { useNewIssueDraftResetOnWorkspaceChange } from "@/data/stores/new-issue-draft-store";
 import { useNewProjectDraftResetOnWorkspaceChange } from "@/data/stores/new-project-draft-store";
@@ -73,12 +76,15 @@ export const unstable_settings = { anchor: "(tabs)" } as const;
  * Add new realtime feature hooks here as they land (issue, chat, etc).
  */
 function RealtimeSubscriptions() {
+  useForegroundInboxService();
   useInboxRealtime();
+  useInboxNotificationPoller();
   useIssuesRealtime();
   useMyIssuesRealtime();
   useChatSessionsRealtime();
   useProjectsRealtime();
   usePinsRealtime();
+  useTaskNotificationsRealtime();
   // Presence: warm the three queries up front so avatars don't flash a
   // dotless first render, and listen for daemon/agent/task events to keep
   // the runtime + snapshot caches fresh. See use-presence-realtime.ts for
@@ -300,6 +306,58 @@ export default function WorkspaceLayout() {
         <Stack.Screen
           name="more/agents"
           options={{ title: "Agents", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="more/squads"
+          options={{ title: "Squads", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="more/squads/[id]"
+          options={{ title: "Squad", headerBackTitle: "Squads" }}
+        />
+        <Stack.Screen
+          name="more/squads/[id]/edit"
+          options={{
+            title: "Edit Squad",
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
+        />
+        <Stack.Screen
+          name="agent/[id]"
+          options={{ title: "Agent", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="agent-edit/[id]"
+          options={{
+            title: "Edit Agent",
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
+        />
+        <Stack.Screen
+          name="autopilots"
+          options={{ title: "Autopilots", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="autopilot/[id]/index"
+          options={{ title: "Autopilot", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="autopilot/[id]/edit"
+          options={{
+            title: "Edit Autopilot",
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
+        />
+        <Stack.Screen
+          name="autopilot/new"
+          options={{
+            title: "New Autopilot",
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
         />
         <Stack.Screen
           name="more/pins"

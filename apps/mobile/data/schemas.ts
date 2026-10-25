@@ -29,6 +29,8 @@ import type {
   Project,
   ProjectResource,
   RuntimeDevice,
+  RuntimeModel,
+  RuntimeModelListRequest,
   SearchIssuesResponse,
   SearchProjectsResponse,
   SendChatMessageResponse,
@@ -370,7 +372,15 @@ export const AgentTaskSchema: z.ZodType<AgentTask> = z.object({
   runtime_id: z.string().default(""),
   issue_id: z.string().default(""),
   status: z
-    .enum(["queued", "dispatched", "running", "completed", "failed", "cancelled"])
+    .enum([
+      "queued",
+      "dispatched",
+      "waiting_local_directory",
+      "running",
+      "completed",
+      "failed",
+      "cancelled",
+    ])
     .catch("queued"),
   priority: z.number().default(0),
   dispatched_at: z.string().nullable().default(null),
@@ -617,6 +627,40 @@ export const RuntimeSchema: z.ZodType<RuntimeDevice> = z.object({
 
 export const RuntimeListSchema = z.array(RuntimeSchema).default([]);
 export const EMPTY_RUNTIME_LIST: RuntimeDevice[] = [];
+
+export const RuntimeModelThinkingLevelSchema = z.object({
+  value: z.string().default(""),
+  label: z.string().default(""),
+  description: z.string().optional(),
+}).loose();
+
+export const RuntimeModelThinkingSchema = z.object({
+  supported_levels: z.array(RuntimeModelThinkingLevelSchema).default([]),
+  default_level: z.string().optional(),
+}).loose();
+
+export const RuntimeModelSchema: z.ZodType<RuntimeModel> = z.object({
+  id: z.string(),
+  label: z.string().default(""),
+  provider: z.string().default(""),
+  default: z.boolean().default(false),
+  description: z.string().optional(),
+  thinking: RuntimeModelThinkingSchema.optional(),
+}).loose();
+
+export const RuntimeModelListRequestSchema: z.ZodType<RuntimeModelListRequest> =
+  z.object({
+    id: z.string(),
+    runtime_id: z.string().default(""),
+    status: z
+      .enum(["pending", "running", "completed", "failed", "timeout"])
+      .catch("failed"),
+    models: z.array(RuntimeModelSchema).optional(),
+    supported: z.boolean().default(true),
+    error: z.string().optional(),
+    created_at: z.string().default(""),
+    updated_at: z.string().default(""),
+  }).loose();
 
 // Squad schema — fields mobile actually consumes for the @mention suggestion
 // bar (id, name, archived_at filter) plus identity/timestamp fields that are

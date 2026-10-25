@@ -16,10 +16,17 @@
  *     onclose-triggered reconnect that bites RN (close is async over the
  *     bridge — see facebook/react-native#9465).
  *   - Token-mode auth only (no cookies on native).
+ *   - Application-level heartbeat. RN's WebSocket never probes the
+ *     connection itself, so a socket whose path died silently (NAT
+ *     rebinding, wifi↔cellular handoff without an offline edge, server
+ *     restart behind a proxy that never forwards the FIN) stays "open"
+ *     forever and every event is lost until the app is backgrounded. We
+ *     send {type:"ping"} and redial when no frame comes back in time.
  *
  * Server compatibility: same protocol as web/desktop. Sends
- *   {type:"auth", payload:{token}} as first frame; expects {type:"auth_ack"}
- *   before any business events. workspace_slug + client_platform passed as
+ *   {type:"auth", payload:{token}} as first frame, then {type:"ping"}; the
+ *   first {type:"auth_ack"} or {type:"pong"} marks the socket ready (see
+ *   onopen for why auth_ack alone isn't enough). workspace_slug + client_platform passed as
  *   query params on the upgrade URL (RN's WebSocket can't set headers).
  */
 import type {
@@ -56,12 +63,19 @@ export interface WSClientOptions {
   workspaceSlug: string;
   /** Mobile app version, surfaced to server logs for debuggability. */
   clientVersion?: string;
+  /** Client OS — "ios" or "android". Sent as query param for server-side
+   *  analytics. Defaults to "ios" for backwards compatibility. */
+  clientOS?: string;
   logger?: Logger;
 }
 
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_CAP_MS = 30_000;
 const RECONNECT_MAX_EXPONENT = 6; // 1s → 64s ceiling, capped at 30s
+// Below the shortest common carrier NAT idle timeout (~30s) so the ping
+// itself also keeps the mapping alive.
+const HEARTBEAT_INTERVAL_MS = 25_000;
+const HEARTBEAT_TIMEOUT_MS = 10_000;
 
 /**
  * Lifecycle state — drives whether onclose schedules a reconnect:
@@ -78,6 +92,12 @@ export class WSClient {
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private hasConnectedBefore = false;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Servers older than the ping/pong frame (pre-#1429) silently ignore
+  // {type:"ping"}. Only treat a missing pong as a dead socket once this
+  // backend has proven it answers — otherwise we'd redial every 35s.
+  private serverAnswersPing = false;
 
   private readonly handlers = new Map<WSEventType, Set<EventHandler>>();
   private readonly anyHandlers = new Set<AnyHandler>();
@@ -188,13 +208,14 @@ export class WSClient {
     const url = new URL(this.opts.url);
     url.searchParams.set("workspace_slug", this.opts.workspaceSlug);
     url.searchParams.set("client_platform", "mobile");
-    url.searchParams.set("client_os", "ios");
+    url.searchParams.set("client_os", this.opts.clientOS ?? "ios");
     if (this.opts.clientVersion) {
       url.searchParams.set("client_version", this.opts.clientVersion);
     }
 
     const ws = new WebSocket(url.toString());
     this.ws = ws;
+    let ready = false;
     this.logger.info("[ws] dialing", url.toString().replace(/token=[^&]*/, "token=…"));
 
     ws.onopen = () => {
@@ -202,6 +223,13 @@ export class WSClient {
       ws.send(
         JSON.stringify({ type: "auth", payload: { token: this.opts.token } }),
       );
+      // RN's native WebSocket shares the fetch cookie jar, so the upgrade
+      // carries the session cookie set by /auth/verify-code. The server
+      // then authenticates via cookie and never sends auth_ack (our auth
+      // frame is ignored as unknown). A ping is answered on both paths —
+      // after auth_ack on the first-frame path, immediately on the cookie
+      // path — so the first auth_ack OR pong marks the socket ready.
+      ws.send(JSON.stringify({ type: "ping" }));
     };
 
     ws.onmessage = (event) => {
@@ -213,9 +241,16 @@ export class WSClient {
         return;
       }
 
+      // Any inbound frame proves the path is alive.
+      this.clearHeartbeatTimeout();
+
       const type = (msg as { type?: string }).type;
-      if (type === "auth_ack") {
-        this.onAuthenticated();
+      if (type === "auth_ack" || type === "pong") {
+        if (type === "pong") this.serverAnswersPing = true;
+        if (!ready) {
+          ready = true;
+          this.onAuthenticated();
+        }
         return;
       }
       if (!type) {
@@ -247,6 +282,7 @@ export class WSClient {
       if (!wasOurs) return;
 
       this.ws = null;
+      this.stopHeartbeat();
       this.logger.warn("[ws] socket closed");
       if (this.state === "active") this.scheduleReconnect();
     };
@@ -255,6 +291,7 @@ export class WSClient {
   private onAuthenticated() {
     this.reconnectAttempt = 0;
     this.logger.info("[ws] authenticated");
+    this.startHeartbeat();
     if (this.hasConnectedBefore) {
       for (const cb of this.onReconnectCallbacks) {
         try {
@@ -292,7 +329,42 @@ export class WSClient {
     }
   }
 
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.ws?.readyState !== WebSocket.OPEN) return;
+      this.ws.send(JSON.stringify({ type: "ping" }));
+      if (!this.serverAnswersPing || this.heartbeatTimeout) return;
+      this.heartbeatTimeout = setTimeout(() => {
+        this.heartbeatTimeout = null;
+        if (this.state !== "active") return;
+        // Zombie socket: no frame for a full timeout after a ping. Drop it
+        // and redial; the next auth_ack fires onReconnect so every hook
+        // refetches what it may have missed.
+        this.logger.warn("[ws] heartbeat timeout, reconnecting");
+        this.teardownSocket();
+        this.scheduleReconnect();
+      }, HEARTBEAT_TIMEOUT_MS);
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private clearHeartbeatTimeout() {
+    if (this.heartbeatTimeout) {
+      clearTimeout(this.heartbeatTimeout);
+      this.heartbeatTimeout = null;
+    }
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    this.clearHeartbeatTimeout();
+  }
+
   private teardownSocket() {
+    this.stopHeartbeat();
     if (!this.ws) return;
     const ws = this.ws;
     // Detach BEFORE close — onclose firing after teardown would re-enter

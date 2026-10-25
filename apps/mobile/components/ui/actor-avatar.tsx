@@ -26,6 +26,7 @@ import { useWorkspaceStore } from "@/data/workspace-store";
 import { useAgentPresence } from "@/lib/use-agent-presence";
 import { PresenceDot } from "@/components/ui/presence-dot";
 import { THEME } from "@/lib/theme";
+import { resolveDownloadUrl } from "@/lib/urls";
 
 // `system` actors are server-side automation (state changes triggered by the
 // platform itself, not a member or an agent). InboxItem.actor_type carries
@@ -89,8 +90,9 @@ function BareAvatar({
   // can crash native-side on malformed sources (empty string, plain "foo",
   // etc.). Cheap regex; falsy / bad input falls through to the icon fallback.
   const rawUrl = type && type !== "system" ? getAvatarUrl(type, id) : null;
+  const resolved = rawUrl ? resolveDownloadUrl(rawUrl) : null;
   const url =
-    rawUrl && /^(https?:|data:|file:|asset:)/.test(rawUrl) ? rawUrl : null;
+    resolved && /^(https?:|data:|file:|asset:)/.test(resolved) ? resolved : null;
 
   if (url) {
     return (

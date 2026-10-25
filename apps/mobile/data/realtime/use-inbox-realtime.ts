@@ -23,12 +23,17 @@
  * no replay buffer in v1).
  */
 import { useQueryClient } from "@tanstack/react-query";
+import { Platform } from "react-native";
 import { inboxKeys } from "@/data/queries/inbox";
 import { useWSSubscriptions } from "@/lib/use-ws-subscriptions";
 import {
   dropInboxItemsByIssue,
   patchInboxIssueStatus,
 } from "./inbox-ws-updaters";
+import { notifyInboxItem } from "@/lib/notifications";
+
+const ENABLE_ANDROID_WS_INBOX_NOTIFICATIONS =
+  process.env.EXPO_PUBLIC_ANDROID_INBOX_SERVICE === "none";
 
 export function useInboxRealtime() {
   const qc = useQueryClient();
@@ -40,7 +45,21 @@ export function useInboxRealtime() {
 
       return [
         // Inbox-domain events: refetch the small inbox list.
-        ws.on("inbox:new", invalidate),
+        ws.on("inbox:new", (payload) => {
+          invalidate();
+
+          if (
+            Platform.OS !== "android" ||
+            ENABLE_ANDROID_WS_INBOX_NOTIFICATIONS
+          ) {
+            void notifyInboxItem(payload.item).catch((err) => {
+              console.warn(
+                "[notifications] failed to show inbox notification",
+                err,
+              );
+            });
+          }
+        }),
         ws.on("inbox:read", invalidate),
         ws.on("inbox:archived", invalidate),
         ws.on("inbox:batch-read", invalidate),

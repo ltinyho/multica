@@ -21,7 +21,9 @@
  *   - agentPickerOpen   — bottom modal visibility
  *
  * Side effects:
- *   - useChatSessionRealtime(activeSessionId) for per-record WS events
+ *   - useChatSessionRealtime(activeSessionId) for the live trace + deletion
+ *     (messages / pendingTask are patched workspace-wide by
+ *     useChatSessionsRealtime)
  *   - auto markRead when entering a session with has_unread
  *   - ensureSession dedupe ref for concurrent first-message sends
  *
@@ -186,9 +188,12 @@ export default function ChatTab() {
   const promoteNewDraft = useChatDraftsStore((s) => s.promoteNewDraft);
 
   // ── Realtime ───────────────────────────────────────────────────────────
-  useChatSessionRealtime(activeSessionId, () => {
+  // Stable callback — it's in the hook's subscription deps, so an inline
+  // arrow would tear down and re-register every listener on each render.
+  const handleActiveSessionDeleted = useCallback(() => {
     setActiveSessionId(null);
-  });
+  }, []);
+  useChatSessionRealtime(activeSessionId, handleActiveSessionDeleted);
 
   // Exit text-selection mode whenever the chat tab loses focus. Expo
   // Router bottom tabs stay mounted across tab switches, so a plain

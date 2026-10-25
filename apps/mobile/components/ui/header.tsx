@@ -38,7 +38,7 @@ export function Header({ title, subtitle, center, left, right }: Props) {
       edges={["top"]}
       className="bg-background border-b border-border"
     >
-      <View className="flex-row items-center h-12 px-2">
+      <View className="flex-row items-center px-2" style={{ height: 52 }}>
         {left ? <View className="flex-row items-center">{left}</View> : null}
         <View className="flex-1 px-2 justify-center">
           {center ?? (
@@ -63,7 +63,7 @@ export function Header({ title, subtitle, center, left, right }: Props) {
           )}
         </View>
         {right ? (
-          <View className="flex-row items-center gap-1">{right}</View>
+          <View className="flex-row items-center gap-1.5">{right}</View>
         ) : null}
       </View>
     </SafeAreaView>

@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronsDown,
   CircleCheck,
   MoreHorizontal,
   PanelRight,
@@ -1691,6 +1692,23 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
               />
               <TooltipContent side="bottom">{actions.isPinned ? t(($) => $.detail.unpin_tooltip) : t(($) => $.detail.pin_tooltip)}</TooltipContent>
             </Tooltip>
+            {scrollContainerEl && (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-muted-foreground"
+                      onClick={() => scrollContainerEl.scrollTo({ top: scrollContainerEl.scrollHeight, behavior: "smooth" })}
+                    >
+                      <ChevronsDown />
+                    </Button>
+                  }
+                />
+                <TooltipContent side="bottom">{t(($) => $.detail.scroll_to_bottom_tooltip)}</TooltipContent>
+              </Tooltip>
+            )}
             <IssueActionsDropdown
               issue={issue}
               align="end"
@@ -1698,7 +1716,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
               // above and skip navigation. Otherwise the modal navigates for us.
               onDeletedNavigateTo={onDelete ? undefined : paths.issues()}
               trigger={
-                <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
+                <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:bg-accent/60 transition-colors">
                   <MoreHorizontal />
                 </Button>
               }

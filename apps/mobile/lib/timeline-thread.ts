@@ -32,6 +32,9 @@ export interface TimelineRow {
   /** Flattened descendant chain in BFS / chronological order. Empty for
    *  activity rows and for top-level comments without replies. */
   replies: TimelineEntry[];
+  /** When present, this row represents a collapsible group of consecutive
+   *  activity entries. `entries` contains the original activities in order. */
+  activityGroup?: TimelineEntry[];
 }
 
 export function buildTimelineRows(
@@ -79,9 +82,36 @@ export function buildTimelineRows(
     return out;
   }
 
-  return topLevel.map((entry) => ({
-    entry,
-    replies:
-      entry.type === "comment" ? collectDescendants(entry.id) : [],
-  }));
+  // Group consecutive activity entries into collapsible groups.
+  // Comments remain as individual rows; a run of 2+ consecutive activities
+  // becomes a single TimelineRow with `activityGroup` populated.
+  const rows: TimelineRow[] = [];
+  let activityBuf: TimelineEntry[] = [];
+
+  function flushActivities() {
+    if (activityBuf.length === 0) return;
+    if (activityBuf.length === 1) {
+      rows.push({ entry: activityBuf[0], replies: [] });
+    } else {
+      // Use the last entry as the representative (newest timestamp).
+      rows.push({
+        entry: activityBuf[activityBuf.length - 1],
+        replies: [],
+        activityGroup: activityBuf,
+      });
+    }
+    activityBuf = [];
+  }
+
+  for (const entry of topLevel) {
+    if (entry.type === "activity") {
+      activityBuf.push(entry);
+    } else {
+      flushActivities();
+      rows.push({ entry, replies: collectDescendants(entry.id) });
+    }
+  }
+  flushActivities();
+
+  return rows;
 }

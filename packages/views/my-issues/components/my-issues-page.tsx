@@ -9,6 +9,7 @@ import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { useAuthStore } from "@multica/core/auth";
 import { useQuery } from "@tanstack/react-query";
 import { filterIssues } from "../../issues/utils/filter";
+import { sortIssues } from "../../issues/utils/sort";
 import { BOARD_STATUSES } from "@multica/core/issues/config";
 import { ViewStoreProvider } from "@multica/core/issues/stores/view-store-context";
 import { useIssueSelectionStore } from "@multica/core/issues/stores/selection-store";
@@ -40,12 +41,16 @@ export function MyIssuesPage() {
   const agentRunningFilter = useStore(myIssuesViewStore, (s) => s.agentRunningFilter);
   const usesAssigneeBoard = viewMode === "board" && grouping === "assignee";
 
+  // `updated_at` sorting is client-only — the server doesn't support it.
+  // Send `created_at` as a fallback so the server returns a stable order,
+  // then we re-sort on the client when `sortBy === "updated_at"`.
+  const serverSortBy = sortBy === "updated_at" ? "created_at" : sortBy;
   const sort = useMemo(
     () => ({
-      sort_by: sortBy,
+      sort_by: serverSortBy,
       sort_direction: sortBy !== "position" ? sortDirection : undefined,
     } as const),
-    [sortBy, sortDirection],
+    [serverSortBy, sortBy, sortDirection],
   );
 
   // See issues-page.tsx for the rationale — derive a workspace-wide set
@@ -115,13 +120,13 @@ export function MyIssuesPage() {
     ...assigneeGroupsOptions,
     enabled: usesAssigneeBoard,
   });
-  const myIssues = useMemo(
-    () =>
-      usesAssigneeBoard
-        ? (assigneeGroupsQuery.data?.groups.flatMap((group) => group.issues) ?? [])
-        : (statusIssuesQuery.data ?? []),
-    [assigneeGroupsQuery.data, statusIssuesQuery.data, usesAssigneeBoard],
-  );
+  // Apply client-side sorting for `updated_at` (server doesn't support it).
+  const myIssues = useMemo(() => {
+    const data = usesAssigneeBoard
+      ? (assigneeGroupsQuery.data?.groups.flatMap((group) => group.issues) ?? [])
+      : (statusIssuesQuery.data ?? []);
+    return sortBy === "updated_at" ? sortIssues(data, sortBy, sortDirection) : data;
+  }, [assigneeGroupsQuery.data, statusIssuesQuery.data, usesAssigneeBoard, sortBy, sortDirection]);
   const loading = usesAssigneeBoard
     ? assigneeGroupsQuery.isLoading
     : statusIssuesQuery.isLoading;

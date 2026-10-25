@@ -34,7 +34,7 @@ export function IssueDescription({
   if (!description || description.trim().length === 0) {
     return (
       <View className="px-4 pb-4">
-        <Text className="text-sm text-muted-foreground italic">
+        <Text className="text-sm text-muted-foreground/70 italic">
           No description.
         </Text>
       </View>

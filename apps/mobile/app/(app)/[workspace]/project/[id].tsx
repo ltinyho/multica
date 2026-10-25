@@ -14,20 +14,13 @@
  * a second tap).
  */
 import { useCallback } from "react";
-import {
-  ActionSheetIOS,
-  ActivityIndicator,
-  Alert,
-  Linking,
-  RefreshControl,
-  ScrollView,
-  View,
-} from "react-native";
+import { Alert, Linking, RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { IconButton } from "@/components/ui/icon-button";
 import { ProjectHeaderCard } from "@/components/project/project-header-card";
 import { ProjectPropertiesSection } from "@/components/project/project-properties-section";
@@ -35,6 +28,7 @@ import { ProjectRelatedIssues } from "@/components/project/project-related-issue
 import { ProjectResourcesSection } from "@/components/project/project-resources-section";
 import {
   projectDetailOptions,
+  projectListOptions,
   projectResourcesOptions,
 } from "@/data/queries/projects";
 import { issueKeys } from "@/data/queries/issue-keys";
@@ -44,6 +38,11 @@ import { useCreatePin, useDeletePin } from "@/data/mutations/pins";
 import { useAuthStore } from "@/data/auth-store";
 import { useProjectRealtime } from "@/data/realtime/use-project-realtime";
 import { useWorkspaceStore } from "@/data/workspace-store";
+import {
+  showActionSheetWithOptions,
+  type ActionSheetItem,
+} from "@/lib/action-sheet";
+import { WEB_URL } from "@/lib/urls";
 
 export default function ProjectDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,7 +50,13 @@ export default function ProjectDetail() {
   const wsSlug = useWorkspaceStore((s) => s.currentWorkspaceSlug);
   const qc = useQueryClient();
 
-  const detail = useQuery(projectDetailOptions(wsId, id));
+  // Projects list rows carry the full project — render from that while
+  // the detail request is in flight.
+  const detail = useQuery({
+    ...projectDetailOptions(wsId, id),
+    placeholderData: () =>
+      qc.getQueryData(projectListOptions(wsId).queryKey)?.find((p) => p.id === id),
+  });
   const deleteProject = useDeleteProject(id);
 
   // Per-record realtime — when another client deletes the project we're
@@ -86,23 +91,23 @@ export default function ProjectDetail() {
 
   const onPressMore = () => {
     if (!project) return;
-    const wsUrl = process.env.EXPO_PUBLIC_WEB_URL;
+    const pinIcon = isPinned ? "pin-outline" : "pin";
     const options = [
-      "Cancel",
-      isPinned ? "Unpin" : "Pin",
-      "Edit details",
-      ...(wsUrl ? ["Open on web"] : []),
-      "Delete",
-    ];
+      { label: "Cancel" },
+      { label: isPinned ? "Unpin" : "Pin", icon: pinIcon },
+      { label: "Edit details", icon: "create-outline" },
+      { label: "Open on web", icon: "globe-outline" },
+      { label: "Delete", icon: "trash-outline" },
+    ] satisfies ActionSheetItem[];
     const destructiveIndex = options.length - 1;
-    ActionSheetIOS.showActionSheetWithOptions(
+    showActionSheetWithOptions(
       {
         options,
         cancelButtonIndex: 0,
         destructiveButtonIndex: destructiveIndex,
       },
       (i) => {
-        const label = options[i];
+        const label = options[i]?.label;
         if (label === "Pin") {
           createPin.mutate({ item_type: "project", item_id: project.id });
           return;
@@ -115,8 +120,8 @@ export default function ProjectDetail() {
           if (wsSlug) router.push(`/${wsSlug}/project/${id}/edit`);
           return;
         }
-        if (label === "Open on web" && wsUrl) {
-          Linking.openURL(`${wsUrl}/${wsSlug}/projects/${id}`);
+        if (label === "Open on web") {
+          Linking.openURL(`${WEB_URL}/${wsSlug}/projects/${id}`);
           return;
         }
         if (i === destructiveIndex) {
@@ -163,9 +168,7 @@ export default function ProjectDetail() {
         }}
       />
       {detail.isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
-        </View>
+        <ProjectDetailLoading />
       ) : detail.error || projectMissing ? (
         <View className="flex-1 items-center justify-center px-6 gap-3">
           <Text className="text-sm text-destructive text-center">
@@ -183,7 +186,7 @@ export default function ProjectDetail() {
           contentContainerClassName="pb-10"
           refreshControl={
             <RefreshControl
-              refreshing={detail.isRefetching}
+              refreshing={detail.isRefetching && !detail.isPlaceholderData}
               onRefresh={onRefresh}
             />
           }
@@ -234,5 +237,24 @@ export default function ProjectDetail() {
         </ScrollView>
       )}
     </SafeAreaView>
+  );
+}
+
+function ProjectDetailLoading() {
+  return (
+    <View className="px-4 pt-4 gap-4">
+      <Skeleton className="size-8 rounded-md" />
+      <Skeleton className="h-7 w-2/3" />
+      <View className="gap-2">
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-4/5" />
+      </View>
+      <Skeleton className="h-2 w-full rounded-full mt-2" />
+      <View className="gap-3 mt-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-9 w-full rounded-lg" />
+        ))}
+      </View>
+    </View>
   );
 }

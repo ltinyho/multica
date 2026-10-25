@@ -29,17 +29,17 @@ export function AttributeChip({
   className,
 }: Props) {
   const containerClass = cn(
-    "flex-row items-center gap-1.5 rounded-full border px-2.5 py-1",
+    "flex-row items-center gap-1.5 rounded-full px-3 py-1.5",
     variant === "filled"
-      ? "border-border bg-secondary/60"
-      : "border-dashed border-muted-foreground/30 bg-transparent",
+      ? "bg-secondary/80 border border-border/60"
+      : "bg-transparent border border-dashed border-muted-foreground/25",
     className,
   );
   const labelClass = cn(
-    "text-xs",
+    "text-xs font-medium",
     variant === "filled"
       ? "text-foreground"
-      : "text-muted-foreground/70",
+      : "text-muted-foreground/60",
   );
 
   const inner = (
@@ -55,8 +55,11 @@ export function AttributeChip({
     return (
       <Pressable
         onPress={onPress}
-        className={cn(containerClass, "active:bg-secondary")}
-        hitSlop={4}
+        className={cn(
+          containerClass,
+          "active:opacity-70 active:scale-95",
+        )}
+        hitSlop={6}
       >
         {inner}
       </Pressable>

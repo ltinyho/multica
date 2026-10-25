@@ -149,13 +149,13 @@ export function IssueActionsMenuItems({
       {/* Status */}
       <P.Sub>
         <P.SubTrigger>
-          <StatusIcon status={issue.status} className="h-3.5 w-3.5" />
+          <StatusIcon status={issue.status} className="h-4 w-4" />
           {t(($) => $.actions.status)}
         </P.SubTrigger>
         <P.SubContent>
           {ALL_STATUSES.map((s) => (
             <P.Item key={s} onClick={() => updateField({ status: s })}>
-              <StatusIcon status={s} className="h-3.5 w-3.5" />
+              <StatusIcon status={s} className="h-4 w-4" />
               {t(($) => $.status[s])}
               {issue.status === s && (
                 <span className="ml-auto text-xs text-muted-foreground">{"✓"}</span>
@@ -194,14 +194,14 @@ export function IssueActionsMenuItems({
           assignee UX across detail sidebar, board cards, and right-click /
           3-dot menus. */}
       <P.Item onClick={onOpenAssignee}>
-        <UserMinus className="h-3.5 w-3.5" />
+        <UserMinus className="h-4 w-4" />
         {t(($) => $.actions.assignee)}
       </P.Item>
 
       {/* Start date */}
       <P.Sub>
         <P.SubTrigger>
-          <CalendarClock className="h-3.5 w-3.5" />
+          <CalendarClock className="h-4 w-4" />
           {t(($) => $.actions.start_date)}
         </P.SubTrigger>
         <P.SubContent>
@@ -228,7 +228,7 @@ export function IssueActionsMenuItems({
       {/* Due date */}
       <P.Sub>
         <P.SubTrigger>
-          <Calendar className="h-3.5 w-3.5" />
+          <Calendar className="h-4 w-4" />
           {t(($) => $.actions.due_date)}
         </P.SubTrigger>
         <P.SubContent>
@@ -256,18 +256,18 @@ export function IssueActionsMenuItems({
 
       <P.Item onClick={togglePin}>
         {isPinned ? (
-          <PinOff className="h-3.5 w-3.5" />
+          <PinOff className="h-4 w-4" />
         ) : (
-          <Pin className="h-3.5 w-3.5" />
+          <Pin className="h-4 w-4" />
         )}
         {isPinned ? t(($) => $.actions.unpin_from_sidebar) : t(($) => $.actions.pin_to_sidebar)}
       </P.Item>
       <P.Item onClick={copyLink}>
-        <Link2 className="h-3.5 w-3.5" />
+        <Link2 className="h-4 w-4" />
         {t(($) => $.actions.copy_link)}
       </P.Item>
       <P.Item onClick={handleCopyWorkdirPath}>
-        <FolderOpen className="h-3.5 w-3.5" />
+        <FolderOpen className="h-4 w-4" />
         {t(($) => $.actions.copy_workdir_path)}
       </P.Item>
 
@@ -277,20 +277,20 @@ export function IssueActionsMenuItems({
           will grow (blocks, duplicates, related) as we add more relation types. */}
       <P.Sub>
         <P.SubTrigger>
-          <MoreHorizontal className="h-3.5 w-3.5" />
+          <MoreHorizontal className="h-4 w-4" />
           {t(($) => $.actions.more)}
         </P.SubTrigger>
         <P.SubContent>
           <P.Item onClick={openCreateSubIssue}>
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             {t(($) => $.actions.create_sub_issue)}
           </P.Item>
           <P.Item onClick={openSetParent}>
-            <ArrowUp className="h-3.5 w-3.5" />
+            <ArrowUp className="h-4 w-4" />
             {t(($) => $.actions.set_parent_issue)}
           </P.Item>
           <P.Item onClick={openAddChild}>
-            <ArrowDown className="h-3.5 w-3.5" />
+            <ArrowDown className="h-4 w-4" />
             {t(($) => $.actions.add_sub_issue)}
           </P.Item>
         </P.SubContent>
@@ -302,7 +302,7 @@ export function IssueActionsMenuItems({
         variant="destructive"
         onClick={() => openDeleteConfirm({ onDeletedNavigateTo })}
       >
-        <Trash2 className="h-3.5 w-3.5" />
+        <Trash2 className="h-4 w-4" />
         {t(($) => $.actions.delete_issue)}
       </P.Item>
     </>

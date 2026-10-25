@@ -239,7 +239,7 @@ export function MentionSuggestionBar({
           }
           if (item.kind === "empty") {
             return (
-              <View className="px-3 py-3">
+              <View className="px-3 py-4">
                 <Text className="text-xs text-muted-foreground">
                   No matches.
                 </Text>
@@ -252,7 +252,7 @@ export function MentionSuggestionBar({
                 onPress={() =>
                   onSelect({ type: "all", id: "all", name: "all" })
                 }
-                className="flex-row items-center gap-3 px-3 py-2 active:bg-secondary"
+                className="flex-row items-center gap-3 px-3 py-2.5 active:bg-secondary/60"
               >
                 <View className="size-7 rounded-full bg-brand/15 items-center justify-center">
                   <Text className="text-xs font-medium text-brand">@</Text>
@@ -274,7 +274,7 @@ export function MentionSuggestionBar({
                     name: item.member.name,
                   })
                 }
-                className="flex-row items-center gap-3 px-3 py-2 active:bg-secondary"
+                className="flex-row items-center gap-3 px-3 py-2.5 active:bg-secondary/60"
               >
                 <ActorAvatar
                   type="member"
@@ -298,7 +298,7 @@ export function MentionSuggestionBar({
                     name: item.agent.name,
                   })
                 }
-                className="flex-row items-center gap-3 px-3 py-2 active:bg-secondary"
+                className="flex-row items-center gap-3 px-3 py-2.5 active:bg-secondary/60"
               >
                 <ActorAvatar type="agent" id={item.agent.id} size={28} showPresence />
                 <Text className="flex-1 text-sm text-foreground">
@@ -318,7 +318,7 @@ export function MentionSuggestionBar({
                     name: item.squad.name,
                   })
                 }
-                className="flex-row items-center gap-3 px-3 py-2 active:bg-secondary"
+                className="flex-row items-center gap-3 px-3 py-2.5 active:bg-secondary/60"
               >
                 <ActorAvatar type="squad" id={item.squad.id} size={28} />
                 <Text className="flex-1 text-sm text-foreground">
@@ -342,7 +342,7 @@ export function MentionSuggestionBar({
                 })
               }
               className={cn(
-                "flex-row items-center gap-3 px-3 py-2 active:bg-secondary",
+                "flex-row items-center gap-3 px-3 py-2.5 active:bg-secondary/60",
                 closed && "opacity-60",
               )}
             >

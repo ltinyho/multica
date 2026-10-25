@@ -14,6 +14,7 @@ import type { User } from "@multica/core/types";
 import { api, ApiError } from "./api";
 import { clearToken, getToken, setToken } from "./secure-storage";
 import { useWorkspaceStore } from "./workspace-store";
+import { stopForegroundInboxService } from "@/lib/foreground-inbox-service";
 
 interface AuthState {
   user: User | null;
@@ -70,6 +71,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    stopForegroundInboxService();
     await clearToken();
     api.setToken(null);
     set({ user: null });

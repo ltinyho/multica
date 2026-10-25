@@ -20,12 +20,20 @@
  * Active / inactive tint colors are derived from the current colour
  * scheme via THEME so dark mode picks contrasting values automatically.
  */
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 import { Tabs } from "expo-router";
-import { Image } from "expo-image";
+import { useQueryClient } from "@tanstack/react-query";
 import { View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { TriggerRef } from "@rn-primitives/dropdown-menu";
 import { useWorkspaceStore } from "@/data/workspace-store";
+import { useAuthStore } from "@/data/auth-store";
+import { issueListOptions } from "@/data/queries/issues";
+import { projectListOptions } from "@/data/queries/projects";
+import { agentListOptions } from "@/data/queries/agents";
+import { squadListOptions } from "@/data/queries/squads";
+import { pinListOptions } from "@/data/queries/pins";
+import { autopilotListOptions } from "@/data/queries/autopilots";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import {
@@ -64,6 +72,22 @@ export default function TabsLayout() {
   // open() so the popover anchors to MoreTabDropdownAnchor's rect.
   const moreTriggerRef = useRef<TriggerRef>(null);
 
+  // Opening the More popover is a strong signal the user is about to jump
+  // into one of its list pages — start those fetches now so the page
+  // renders with data instead of a skeleton. prefetchQuery is a no-op for
+  // caches that are still fresh.
+  const qc = useQueryClient();
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const prefetchMoreDestinations = useCallback(() => {
+    if (!wsId) return;
+    void qc.prefetchQuery(issueListOptions(wsId));
+    void qc.prefetchQuery(projectListOptions(wsId));
+    void qc.prefetchQuery(agentListOptions(wsId));
+    void qc.prefetchQuery(squadListOptions(wsId));
+    void qc.prefetchQuery(autopilotListOptions(wsId));
+    if (userId) void qc.prefetchQuery(pinListOptions(wsId, userId));
+  }, [qc, wsId, userId]);
+
   return (
     <View style={{ flex: 1 }}>
       <Tabs
@@ -82,10 +106,10 @@ export default function TabsLayout() {
             tabBarBadge: inboxBadge,
             tabBarBadgeStyle: BADGE_STYLE,
             tabBarIcon: ({ color, size, focused }) => (
-              <Image
-                source={focused ? "sf:tray.fill" : "sf:tray"}
-                tintColor={color}
-                style={{ width: size, height: size }}
+              <Ionicons
+                name={focused ? "file-tray-full" : "file-tray-full-outline"}
+                size={size}
+                color={color}
               />
             ),
           }}
@@ -95,10 +119,10 @@ export default function TabsLayout() {
           options={{
             title: "My Issues",
             tabBarIcon: ({ color, size, focused }) => (
-              <Image
-                source={focused ? "sf:checklist" : "sf:checklist.unchecked"}
-                tintColor={color}
-                style={{ width: size, height: size }}
+              <Ionicons
+                name={focused ? "checkmark-circle" : "checkmark-circle-outline"}
+                size={size}
+                color={color}
               />
             ),
           }}
@@ -110,10 +134,10 @@ export default function TabsLayout() {
             tabBarBadge: chatBadge,
             tabBarBadgeStyle: BADGE_STYLE,
             tabBarIcon: ({ color, size, focused }) => (
-              <Image
-                source={focused ? "sf:bubble.left.fill" : "sf:bubble.left"}
-                tintColor={color}
-                style={{ width: size, height: size }}
+              <Ionicons
+                name={focused ? "chatbubble" : "chatbubble-outline"}
+                size={size}
+                color={color}
               />
             ),
           }}
@@ -123,11 +147,7 @@ export default function TabsLayout() {
           options={{
             title: "More",
             tabBarIcon: ({ color, size }) => (
-              <Image
-                source="sf:ellipsis"
-                tintColor={color}
-                style={{ width: size, height: size }}
-              />
+              <Ionicons name="ellipsis-horizontal" size={size} color={color} />
             ),
           }}
           listeners={() => ({
@@ -137,6 +157,7 @@ export default function TabsLayout() {
               // mounted in MoreTabDropdownAnchor below; ref.open() also
               // measures its rect so the popover anchors correctly.
               e.preventDefault();
+              prefetchMoreDestinations();
               moreTriggerRef.current?.open();
             },
           })}

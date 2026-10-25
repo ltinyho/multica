@@ -28,6 +28,7 @@ import { useWorkspaceId } from "@multica/core/hooks";
 import { useWorkspacePaths } from "@multica/core/paths";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { PROJECT_STATUS_ORDER, PROJECT_STATUS_CONFIG, PROJECT_PRIORITY_ORDER } from "@multica/core/projects/config";
+import { sortIssues } from "../../issues/utils/sort";
 import { BOARD_STATUSES } from "@multica/core/issues/config";
 import { createIssueViewStore } from "@multica/core/issues/stores/view-store";
 import { ViewStoreProvider, useViewStore } from "@multica/core/issues/stores/view-store-context";
@@ -289,12 +290,16 @@ function ProjectIssuesSurface({
   const usesAssigneeBoard = viewMode === "board" && grouping === "assignee";
   const usesGantt = viewMode === "gantt";
 
+  // `updated_at` sorting is client-only — the server doesn't support it.
+  // Send `created_at` as a fallback so the server returns a stable order,
+  // then we re-sort on the client when `sortBy === "updated_at"`.
+  const serverSortBy = sortBy === "updated_at" ? "created_at" : sortBy;
   const sort = useMemo(
     () => ({
-      sort_by: sortBy,
+      sort_by: serverSortBy,
       sort_direction: sortBy !== "position" ? sortDirection : undefined,
     } as const),
-    [sortBy, sortDirection],
+    [serverSortBy, sortBy, sortDirection],
   );
 
   const assigneeGroupFilter = useMemo<AssigneeGroupedIssuesFilter>(
@@ -338,9 +343,13 @@ function ProjectIssuesSurface({
     ...projectGanttIssuesOptions(wsId, projectId),
     enabled: usesGantt,
   });
-  const bucketedIssues = usesAssigneeBoard
-    ? (assigneeGroupsQuery.data?.groups.flatMap((group) => group.issues) ?? [])
-    : (statusIssuesQuery.data ?? []);
+  // Apply client-side sorting for `updated_at` (server doesn't support it).
+  const bucketedIssues = useMemo(() => {
+    const data = usesAssigneeBoard
+      ? (assigneeGroupsQuery.data?.groups.flatMap((group) => group.issues) ?? [])
+      : (statusIssuesQuery.data ?? []);
+    return sortBy === "updated_at" ? sortIssues(data, sortBy, sortDirection) : data;
+  }, [assigneeGroupsQuery.data, statusIssuesQuery.data, usesAssigneeBoard, sortBy, sortDirection]);
   const ganttIssues = ganttIssuesQuery.data ?? [];
   // What the header empty-state check looks at depends on the view: Gantt
   // would otherwise be blamed for an empty Board cache, even though it has

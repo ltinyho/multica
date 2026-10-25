@@ -460,7 +460,7 @@ export function MessageComposer({
         accessibilityRole="button"
         accessibilityLabel={pillLabel}
         accessibilityState={{ disabled }}
-        className="flex-row items-center gap-2 h-11 px-4 rounded-full bg-secondary active:opacity-80"
+        className="flex-row items-center gap-2 h-11 px-4 rounded-full bg-secondary/80 active:opacity-80"
       >
         <Ionicons
           name={pillIcon}
@@ -480,7 +480,7 @@ export function MessageComposer({
       style={{ paddingBottom: (manageKeyboard ? insets.bottom : 0) + 4 }}
     >
       {replyTarget && (
-        <View className="px-3 py-1.5 rounded-md bg-secondary/60 gap-0.5">
+        <View className="px-3 py-2 rounded-xl bg-secondary/60 gap-1">
           <View className="flex-row items-center gap-2">
             <Ionicons
               name="return-up-back"
@@ -518,7 +518,7 @@ export function MessageComposer({
       )}
 
       <View
-        className="rounded-3xl border border-border bg-secondary"
+        className="rounded-3xl border border-border/60 bg-secondary/80"
         style={{ borderCurve: "continuous" }}
       >
         {(mentions.length > 0 || attachments.length > 0) ? (

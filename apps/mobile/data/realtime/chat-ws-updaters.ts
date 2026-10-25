@@ -2,8 +2,9 @@
  * Mobile-owned WS cache patchers for the chat domain.
  *
  * Pure functions over QueryClient — no React, no WS plumbing. The
- * `use-chat-sessions-realtime` and `use-chat-session-realtime` hooks
- * translate WS events into calls into this module.
+ * `use-chat-sessions-realtime` (workspace-wide: sessions list, messages,
+ * pending task) and `use-chat-session-realtime` (active session: live
+ * trace, deletion) hooks translate WS events into calls into this module.
  *
  * Why mobile-owned (and not importing from web's chat ws-updaters):
  *   - Web binds its updaters to `chatKeys` from packages/core/chat/queries.ts,
@@ -105,6 +106,7 @@ export function applyChatDoneToCache(
   qc: QueryClient,
   payload: ChatDonePayload,
 ) {
+  const messagesKey = chatKeys.messages(payload.chat_session_id);
   if (payload.message_id && payload.content != null && payload.created_at) {
     const assistantMsg: ChatMessage = {
       id: payload.message_id,
@@ -115,19 +117,24 @@ export function applyChatDoneToCache(
       created_at: payload.created_at,
       elapsed_ms: payload.elapsed_ms ?? null,
     };
-    qc.setQueryData<ChatMessage[]>(
-      chatKeys.messages(payload.chat_session_id),
-      (old) => {
-        if (!old) return [assistantMsg];
-        // Echo guard — server may re-emit on reconnect.
-        if (old.some((m) => m.id === assistantMsg.id)) return old;
-        return [...old, assistantMsg];
-      },
-    );
-  } else {
-    qc.invalidateQueries({
-      queryKey: chatKeys.messages(payload.chat_session_id),
+    qc.setQueryData<ChatMessage[]>(messagesKey, (old) => {
+      // No cache yet (session never opened, or gc'd) — leave it absent so
+      // the next open fetches the full history. Seeding `[assistantMsg]`
+      // here would pin a one-message list under `staleTime: Infinity`.
+      if (!old) return old;
+      // Echo guard — server may re-emit on reconnect.
+      if (old.some((m) => m.id === assistantMsg.id)) return old;
+      return [...old, assistantMsg];
     });
+    // A refetch already in flight (e.g. the post-send invalidate, or a
+    // chat:message echo) read the DB before this row existed; when it
+    // resolves it would overwrite the patch above and the reply vanishes
+    // until the next refetch. Restart it so the response includes the row.
+    if (qc.getQueryState(messagesKey)?.fetchStatus === "fetching") {
+      qc.invalidateQueries({ queryKey: messagesKey });
+    }
+  } else {
+    qc.invalidateQueries({ queryKey: messagesKey });
   }
   // Clear in-flight pointer in the same tick so StatusPill unmounts and
   // the AssistantMessage owns the rendering.

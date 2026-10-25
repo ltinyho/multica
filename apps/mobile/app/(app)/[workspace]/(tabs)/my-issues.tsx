@@ -14,9 +14,13 @@
  * Filter state lives in `useMyIssuesViewStore` and is cleared on workspace
  * change via the shared `useClearFiltersOnWorkspaceChange` hook.
  */
-import { useMemo } from "react";
-import { Pressable, SectionList, View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { Modal, Pressable, ScrollView, SectionList, View } from "react-native";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { Issue, IssuePriority, IssueStatus } from "@multica/core/types";
@@ -30,6 +34,8 @@ import { IssuesLoading } from "@/components/issue/issues-loading";
 import {
   buildMyIssuesFilter,
   myIssueListOptions,
+  type MyIssuesSortBy,
+  type MyIssuesSortDirection,
 } from "@/data/queries/my-issues";
 import type { MyIssuesScope } from "@/data/queries/issue-keys";
 import { useAuthStore } from "@/data/auth-store";
@@ -52,6 +58,7 @@ import { THEME } from "@/lib/theme";
 // (`involves_user_id`, MUL-2397) covers owned agents + related squads; the
 // empty state copy still says "agents or squads".
 const SCOPES: { value: MyIssuesScope; label: string }[] = [
+  { value: "all", label: "All" },
   { value: "assigned", label: "Assigned" },
   { value: "created", label: "Created" },
   { value: "agents", label: "Agents" },
@@ -66,8 +73,16 @@ export default function MyIssues() {
 
   const scope = useMyIssuesViewStore((s) => s.scope);
   const setScope = useMyIssuesViewStore((s) => s.setScope);
+  const sortBy = useMyIssuesViewStore((s) => s.sortBy);
+  const sortDirection = useMyIssuesViewStore((s) => s.sortDirection);
   const statusFilters = useMyIssuesViewStore((s) => s.statusFilters);
   const priorityFilters = useMyIssuesViewStore((s) => s.priorityFilters);
+  const restorePersisted = useMyIssuesViewStore((s) => s.restorePersisted);
+
+  // Restore persisted scope and sort on mount so the last selection survives restarts.
+  useEffect(() => {
+    restorePersisted();
+  }, [restorePersisted]);
 
   const openFilter = () => {
     if (!wsSlug) return;
@@ -87,10 +102,38 @@ export default function MyIssues() {
     [scope, userId],
   );
 
-  const { data, isLoading, error, refetch, isRefetching } = useQuery({
-    ...myIssueListOptions(wsId, scope, filter),
-    enabled: !!wsId && !!userId,
-  });
+  const qc = useQueryClient();
+  const { data, isLoading, error, refetch, isRefetching, isPlaceholderData } =
+    useQuery({
+      ...myIssueListOptions(wsId, scope, filter, userId ?? undefined, sortBy, sortDirection),
+      enabled: !!wsId && !!userId,
+      // Keep the previous scope's rows on screen while a not-yet-cached
+      // scope loads (dimmed below) instead of flashing the full skeleton.
+      placeholderData: keepPreviousData,
+    });
+  const loaded = data !== undefined && !isPlaceholderData;
+
+  // Once the visible scope has landed, warm the sibling scopes so tapping
+  // another pill reads straight from cache. "all" goes first: its queryFn
+  // fetches assigned/created/agents through their own cache entries, so
+  // the single-scope prefetches below dedupe against those requests.
+  useEffect(() => {
+    if (!loaded || !wsId || !userId) return;
+    const order: MyIssuesScope[] = ["all", "assigned", "created", "agents"];
+    for (const s of order) {
+      if (s === scope) continue;
+      void qc.prefetchQuery(
+        myIssueListOptions(
+          wsId,
+          s,
+          buildMyIssuesFilter(s, userId),
+          userId,
+          sortBy,
+          sortDirection,
+        ),
+      );
+    }
+  }, [loaded, qc, wsId, userId, scope, sortBy, sortDirection]);
 
   // Apply client-side status + priority filter. Mirrors the predicate at
   // packages/views/issues/utils/filter.ts:30-34 via filterIssues().
@@ -133,6 +176,8 @@ export default function MyIssues() {
         onChange={(v) => setScope(v)}
         onOpenFilter={openFilter}
         hasActiveFilters={hasActiveFilters}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
       />
       {hasActiveFilters ? (
         <ActiveFilterChips
@@ -168,6 +213,7 @@ export default function MyIssues() {
         />
       ) : (
         <SectionList
+          style={isPlaceholderData ? { opacity: 0.5 } : undefined}
           sections={sections}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled={false}
@@ -189,7 +235,7 @@ export default function MyIssues() {
               }}
             />
           )}
-          refreshing={isRefetching}
+          refreshing={isRefetching && !isPlaceholderData}
           onRefresh={refetch}
         />
       )}
@@ -253,42 +299,186 @@ function ScopeToolbar<S extends string>({
   onChange,
   onOpenFilter,
   hasActiveFilters,
+  sortBy,
+  sortDirection,
 }: {
   scopes: { value: S; label: string }[];
   scope: S;
   onChange: (value: S) => void;
   onOpenFilter: () => void;
   hasActiveFilters: boolean;
+  sortBy: MyIssuesSortBy;
+  sortDirection: MyIssuesSortDirection;
 }) {
+  const [sortVisible, setSortVisible] = useState(false);
+
   return (
-    <View className="flex-row items-center justify-between px-4 pt-2 pb-2">
-      <View className="flex-row items-center gap-1 flex-shrink min-w-0">
-        {scopes.map((s) => {
-          const active = scope === s.value;
-          return (
-            <Button
-              key={s.value}
-              variant="outline"
-              size="sm"
-              onPress={() => onChange(s.value)}
-              className={active ? "bg-accent" : ""}
-              accessibilityState={{ selected: active }}
-            >
-              <Text
-                numberOfLines={1}
-                className={active ? "text-accent-foreground" : "text-muted-foreground"}
+    <>
+      <View className="flex-row items-center pt-2 pb-2 pr-4">
+        {/* Pills scroll horizontally so the fourth scope never gets
+            squeezed under the sort / filter buttons on narrow screens. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          className="flex-1"
+          contentContainerClassName="items-center gap-1 pl-4 pr-2"
+        >
+          {scopes.map((s) => {
+            const active = scope === s.value;
+            return (
+              <Button
+                key={s.value}
+                variant="outline"
+                size="sm"
+                onPress={() => onChange(s.value)}
+                className={active ? "bg-accent" : ""}
+                accessibilityState={{ selected: active }}
               >
-                {s.label}
-              </Text>
-            </Button>
-          );
-        })}
+                <Text
+                  numberOfLines={1}
+                  className={active ? "text-accent-foreground" : "text-muted-foreground"}
+                >
+                  {s.label}
+                </Text>
+              </Button>
+            );
+          })}
+        </ScrollView>
+        <View className="flex-row items-center gap-1">
+          <SortButton
+            onPress={() => setSortVisible(true)}
+            sortBy={sortBy}
+            sortDirection={sortDirection}
+          />
+          <FilterButton
+            onPress={onOpenFilter}
+            hasActiveFilters={hasActiveFilters}
+          />
+        </View>
       </View>
-      <FilterButton
-        onPress={onOpenFilter}
-        hasActiveFilters={hasActiveFilters}
+      <SortPickerModal
+        visible={sortVisible}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onClose={() => setSortVisible(false)}
       />
+    </>
+  );
+}
+
+const SORT_OPTIONS: {
+  key: string;
+  label: string;
+  sortBy: MyIssuesSortBy;
+  sortDirection: MyIssuesSortDirection;
+}[] = [
+  { key: "created_desc", label: "Created (Newest)", sortBy: "created_at", sortDirection: "desc" },
+  { key: "created_asc", label: "Created (Oldest)", sortBy: "created_at", sortDirection: "asc" },
+  { key: "updated_desc", label: "Updated (Newest)", sortBy: "updated_at", sortDirection: "desc" },
+  { key: "updated_asc", label: "Updated (Oldest)", sortBy: "updated_at", sortDirection: "asc" },
+  { key: "start_asc", label: "Start Date (Soonest)", sortBy: "start_date", sortDirection: "asc" },
+  { key: "start_desc", label: "Start Date (Latest)", sortBy: "start_date", sortDirection: "desc" },
+  { key: "due_asc", label: "Due Date (Soonest)", sortBy: "due_date", sortDirection: "asc" },
+  { key: "due_desc", label: "Due Date (Latest)", sortBy: "due_date", sortDirection: "desc" },
+];
+
+function SortButton({
+  onPress,
+  sortBy,
+  sortDirection,
+}: {
+  onPress: () => void;
+  sortBy: MyIssuesSortBy;
+  sortDirection: MyIssuesSortDirection;
+}) {
+  const { colorScheme } = useColorScheme();
+  const isDefault = sortBy === "created_at" && sortDirection === "desc";
+  return (
+    <View style={{ position: "relative" }}>
+      <Button
+        variant="outline"
+        size="sm"
+        onPress={onPress}
+        accessibilityLabel="Sort"
+        className="w-9 px-0"
+      >
+        <Ionicons
+          name={sortDirection === "asc" ? "arrow-up" : "arrow-down"}
+          size={16}
+          color={isDefault ? THEME[colorScheme].mutedForeground : THEME[colorScheme].primary}
+        />
+      </Button>
+      {!isDefault ? (
+        <View
+          pointerEvents="none"
+          className="absolute top-1 right-1 size-1.5 rounded-full bg-brand"
+        />
+      ) : null}
     </View>
+  );
+}
+
+function SortPickerModal({
+  visible,
+  sortBy,
+  sortDirection,
+  onClose,
+}: {
+  visible: boolean;
+  sortBy: MyIssuesSortBy;
+  sortDirection: MyIssuesSortDirection;
+  onClose: () => void;
+}) {
+  const { colorScheme } = useColorScheme();
+  const checkColor = THEME[colorScheme].primary;
+  const setSortBy = useMyIssuesViewStore((s) => s.setSortBy);
+  const setSortDirection = useMyIssuesViewStore((s) => s.setSortDirection);
+  const currentKey = `${sortBy === "created_at" ? "created" : sortBy === "updated_at" ? "updated" : sortBy === "start_date" ? "start" : "due"}_${sortDirection}`;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable className="flex-1 bg-black/40" onPress={onClose}>
+        <View className="flex-1 items-center justify-center px-6">
+          <Pressable onPress={() => {}} className="w-full max-w-sm">
+            <View className="bg-popover rounded-2xl overflow-hidden">
+              <View className="px-4 py-3 border-b border-border">
+                <Text className="text-base font-semibold text-foreground">
+                  Sort by
+                </Text>
+              </View>
+              <View className="px-2 py-1">
+                {SORT_OPTIONS.map((opt) => {
+                  const selected = opt.key === currentKey;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      onPress={() => {
+                        setSortBy(opt.sortBy);
+                        setSortDirection(opt.sortDirection);
+                        onClose();
+                      }}
+                      className="flex-row items-center gap-3 rounded-lg px-3 py-3 active:bg-secondary"
+                    >
+                      <Ionicons
+                        name={opt.sortDirection === "asc" ? "arrow-up" : "arrow-down"}
+                        size={16}
+                        color={THEME[colorScheme].mutedForeground}
+                      />
+                      <Text className="flex-1 text-base text-foreground">
+                        {opt.label}
+                      </Text>
+                      {selected ? (
+                        <Ionicons name="checkmark" size={20} color={checkColor} />
+                      ) : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </Pressable>
+        </View>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -362,6 +552,8 @@ function EmptyState({ message }: { message: string }) {
 
 function emptyMessageForScope(scope: MyIssuesScope): string {
   switch (scope) {
+    case "all":
+      return "No issues involving you yet.";
     case "assigned":
       return "No issues assigned to you.";
     case "created":

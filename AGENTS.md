@@ -8,6 +8,25 @@ This file provides guidance to AI agents when working with code in this reposito
 
 ## Quick Reference
 
+### Local Android Mobile Overlay
+
+This checkout carries a local Android notification / APK build overlay on top of
+the Expo mobile app. Before changing Android notifications, APK packaging, mobile
+production URLs, or bottom tab icons, read:
+
+- `apps/mobile/docs/android-notifications-apk-maintenance.md`
+
+When refreshing from a newer official upstream release, reapply the local Android
+notification commits in order if possible:
+
+```bash
+git cherry-pick 560d7c7a 09b33d10 e5ac4893 9ead0012 a6175bd3
+```
+
+Keep native Android edits in Expo config plugins, not generated
+`apps/mobile/android/`. Build variant APKs must remain distinguishable by
+filename/version and copied to `~/Downloads`.
+
 ### Architecture
 
 Go backend + monorepo frontend (pnpm workspaces + Turborepo) with shared packages.

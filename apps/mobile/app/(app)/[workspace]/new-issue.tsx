@@ -22,7 +22,7 @@ import {
   ScrollView,
   TextInput,
 } from "react-native";
-import { Stack, router } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { SubmitIssueButton } from "@/components/issue/submit-issue-button";
 import { CreateFormAttributeRow } from "@/components/issue/create-form-attribute-row";
 import { MentionSuggestionBar } from "@/components/issue/mention-suggestion-bar";
@@ -33,6 +33,9 @@ import { useNewIssueDraftStore } from "@/data/stores/new-issue-draft-store";
 import { useMentionInput } from "@/lib/use-mention-input";
 
 export default function NewIssueModal() {
+  const { parentIssueId } = useLocalSearchParams<{
+    parentIssueId?: string;
+  }>();
   const [title, setTitle] = useState("");
   const description = useMentionInput();
   // Attribute chips (status / priority / assignee / due date / project)
@@ -74,6 +77,7 @@ export default function NewIssueModal() {
           : {}),
         ...(dueDate ? { due_date: dueDate } : {}),
         ...(project ? { project_id: project.id } : {}),
+        ...(parentIssueId ? { parent_issue_id: parentIssueId } : {}),
       });
       router.back();
     } catch (err) {
@@ -90,6 +94,7 @@ export default function NewIssueModal() {
     assignee,
     dueDate,
     project,
+    parentIssueId,
     createIssue,
   ]);
 
@@ -106,7 +111,12 @@ export default function NewIssueModal() {
 
   return (
     <>
-      <Stack.Screen options={{ headerRight }} />
+      <Stack.Screen
+        options={{
+          headerRight,
+          title: parentIssueId ? "New sub-issue" : "New issue",
+        }}
+      />
       <KeyboardAvoidingView
         className="flex-1 bg-background"
         behavior={Platform.OS === "ios" ? "padding" : undefined}

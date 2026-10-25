@@ -25,11 +25,11 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { Image as ExpoImage } from "expo-image";
 import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import type { Workspace } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
+import { SymbolIcon } from "@/components/ui/symbol-icon";
 import { workspaceListOptions } from "@/data/queries/workspaces";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useColorScheme } from "@/lib/use-color-scheme";
@@ -116,10 +116,11 @@ function WorkspaceRow({
         active && "opacity-100",
       )}
     >
-      <ExpoImage
-        source="sf:building.2"
-        tintColor={active ? iconTint : mutedIconTint}
-        style={{ width: 18, height: 18 }}
+      <SymbolIcon
+        sf="building.2"
+        ionicon="business-outline"
+        size={18}
+        color={active ? iconTint : mutedIconTint}
       />
       <Text
         className={cn(
@@ -131,10 +132,11 @@ function WorkspaceRow({
         {workspace.name}
       </Text>
       {active ? (
-        <ExpoImage
-          source="sf:checkmark"
-          tintColor={iconTint}
-          style={{ width: 16, height: 16 }}
+        <SymbolIcon
+          sf="checkmark"
+          ionicon="checkmark"
+          size={16}
+          color={iconTint}
         />
       ) : null}
     </Pressable>

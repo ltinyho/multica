@@ -11,14 +11,7 @@
  * is authoritative, never the local form state).
  */
 import { useEffect, useState } from "react";
-import {
-  ActionSheetIOS,
-  Alert,
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  View,
-} from "react-native";
+import { Alert, ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -28,6 +21,10 @@ import { Separator } from "@/components/ui/separator";
 import { useAuthStore } from "@/data/auth-store";
 import { api } from "@/data/api";
 import type { FileAsset } from "@/data/api";
+import {
+  showActionSheetWithOptions,
+  type ActionSheetItem,
+} from "@/lib/action-sheet";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5 MB — matches what's reasonable on cellular.
 
@@ -59,12 +56,19 @@ export default function ProfileSettingsScreen() {
   const dirty = name.trim() !== (user?.name ?? "") && name.trim().length > 0;
 
   const handleAvatarPick = () => {
-    const options = ["Take Photo", "Choose from Library", "Remove Photo", "Cancel"];
+    const allOptions = [
+      { label: "Take Photo", icon: "camera-outline" },
+      { label: "Choose from Library", icon: "images-outline" },
+      { label: "Remove Photo", icon: "trash-outline" },
+      { label: "Cancel" },
+    ] satisfies ActionSheetItem[];
     const removeIndex = user?.avatar_url ? 2 : -1;
     const cancelIndex = user?.avatar_url ? 3 : 2;
-    const visibleOptions = user?.avatar_url ? options : options.filter((_, i) => i !== 2);
+    const visibleOptions = user?.avatar_url
+      ? allOptions
+      : allOptions.filter((_, i) => i !== 2);
 
-    ActionSheetIOS.showActionSheetWithOptions(
+    showActionSheetWithOptions(
       {
         options: visibleOptions,
         cancelButtonIndex: cancelIndex,

@@ -32,8 +32,8 @@ export function DescriptionField({
       className={cn(
         "rounded-2xl border px-3",
         focused
-          ? "border-primary/30 bg-secondary"
-          : "border-transparent bg-secondary/40",
+          ? "border-primary/30 bg-secondary/80"
+          : "border-transparent bg-secondary/50",
       )}
     >
       <AutosizeTextArea

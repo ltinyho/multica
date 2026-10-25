@@ -13,15 +13,20 @@
  * Workspace switch → unmount/remount → fresh client with the new slug.
  *
  * Lifecycle signals:
- *   AppState 'background'  → pause socket (iOS will kill it anyway; clean
- *                            close avoids a kernel-level reset on resume)
+ *   AppState 'background'  → pause socket on iOS (iOS will kill it anyway;
+ *                            clean close avoids a kernel-level reset on
+ *                            resume). Android keeps the socket open
+ *                            best-effort so local inbox notifications can
+ *                            fire while recently backgrounded; true
+ *                            killed-app delivery needs push.
  *   AppState 'active'      → resume socket
  *   AppState 'inactive'    → ignore (transient: app switcher / Control
  *                            Center / incoming call — tearing down here
  *                            causes spurious reconnect storms)
  *   NetInfo offline → online edge → force reconnect (don't wait for TCP
  *                                    keepalive timeout to notice the dead
- *                                    socket after wifi↔cellular handoff)
+ *                                    socket)
+ *   NetInfo type change (wifi ↔ cellular) while online → force reconnect
  *
  * Provider does NOT register business event handlers — those live in
  * per-feature hooks (use-inbox-realtime, etc.) so the realtime layer
@@ -34,23 +39,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState, Platform, type AppStateStatus } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { getToken } from "@/data/secure-storage";
+import { WS_URL } from "@/lib/urls";
 import { WSClient } from "./ws-client";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
-
-if (!API_URL) {
-  // ApiClient already throws on this; keeping a defensive check here
-  // avoids a confusing "URL constructor failed" deep in WSClient.
-  throw new Error("EXPO_PUBLIC_API_URL is not set");
-}
-
-// http(s)://host → ws(s)://host/ws
-const WS_URL = `${API_URL.replace(/^http/, "ws")}/ws`;
 
 const RealtimeContext = createContext<WSClient | null>(null);
 
@@ -70,6 +65,12 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   // offline → online EDGE, not on every change event (NetInfo fires for
   // wifi strength changes, type changes, etc).
   const lastConnectedRef = useRef<boolean | null>(null);
+  const lastNetTypeRef = useRef<string | null>(null);
+
+  // Android background pause timer — the foreground service already covers
+  // background inbox delivery, so keeping the socket open is redundant and
+  // prevents the radio from entering low-power mode.
+  const androidBgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!userId || !wsSlug) {
@@ -91,6 +92,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         token,
         workspaceSlug: wsSlug,
         clientVersion: "0.1.0",
+        clientOS: Platform.OS,
         logger: console,
       });
       ws.connect();
@@ -104,10 +106,24 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             // Foreground. The socket may have been paused (we put it
             // there on background) or it may be a zombie (iOS killed
             // it silently). Either way: resume / force-reconnect.
+            if (androidBgTimerRef.current) {
+              clearTimeout(androidBgTimerRef.current);
+              androidBgTimerRef.current = null;
+            }
             ws?.resume();
             ws?.forceReconnect();
           } else if (status === "background") {
-            ws?.pause();
+            if (Platform.OS === "ios") {
+              ws?.pause();
+            } else {
+              // Android: pause after 2 min. The foreground service handles
+              // background inbox polling; keeping the socket open just
+              // drains battery by holding the radio in high-power mode.
+              androidBgTimerRef.current = setTimeout(() => {
+                androidBgTimerRef.current = null;
+                ws?.pause();
+              }, 120_000);
+            }
           }
           // 'inactive' (iOS-only, transient) → ignore.
         },
@@ -115,15 +131,31 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
       // ── NetInfo ─────────────────────────────────────────────────
       lastConnectedRef.current = null;
+      lastNetTypeRef.current = null;
       netInfoUnsub = NetInfo.addEventListener((state) => {
         const isConnected = state.isConnected === true;
         const previous = lastConnectedRef.current;
+        const previousType = lastNetTypeRef.current;
         lastConnectedRef.current = isConnected;
+        lastNetTypeRef.current = state.type;
         // Edge: false → true. First event (previous === null) is
         // skipped — connect()/resume() above already handle the
         // initial state.
         if (previous === false && isConnected) {
           console.info("[realtime] netinfo: back online → forceReconnect");
+          ws?.forceReconnect();
+          return;
+        }
+        // wifi ↔ cellular handoff often never reports offline, but the old
+        // socket is bound to the dead interface and goes silent.
+        if (
+          isConnected &&
+          previousType !== null &&
+          previousType !== state.type
+        ) {
+          console.info(
+            `[realtime] netinfo: ${previousType} → ${state.type} → forceReconnect`,
+          );
           ws?.forceReconnect();
         }
       });
@@ -131,6 +163,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
+      if (androidBgTimerRef.current) {
+        clearTimeout(androidBgTimerRef.current);
+        androidBgTimerRef.current = null;
+      }
       appStateSub?.remove();
       netInfoUnsub?.();
       ws?.disconnect();

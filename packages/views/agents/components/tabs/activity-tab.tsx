@@ -83,14 +83,20 @@ export function ActivityTab({ agent }: ActivityTabProps) {
   const isWorkflowTask = (t: AgentTask) => !t.chat_session_id;
 
   const activeTasks = useMemo(() => {
-    return snapshot.filter(
-      (t) =>
-        t.agent_id === agent.id &&
-        isWorkflowTask(t) &&
-        (t.status === "running" ||
-          t.status === "queued" ||
-          t.status === "dispatched"),
-    );
+    return snapshot
+      .filter(
+        (t) =>
+          t.agent_id === agent.id &&
+          isWorkflowTask(t) &&
+          (t.status === "running" ||
+            t.status === "queued" ||
+            t.status === "dispatched"),
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() -
+          new Date(a.created_at).getTime(),
+      );
   }, [snapshot, agent.id]);
 
   // Most recent terminal tasks. Includes cancelled — users searching

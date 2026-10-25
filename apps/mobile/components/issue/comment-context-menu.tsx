@@ -4,7 +4,7 @@
  * ring while the sheet is on screen).
  *
  * iOS-native first per apps/mobile/CLAUDE.md §UI components → waterfall step
- * 1: `ActionSheetIOS.showActionSheetWithOptions`. Zero custom layout, zero
+ * 1: `showActionSheetWithOptions`. Zero custom layout, zero
  * animation, zero overflow math, zero new deps.
  *
  * Item set (conditional, mirrors web's comment context menu):
@@ -18,7 +18,11 @@
  * first is still dismissing — the callback runs after dismissal completes.
  */
 import { useCallback, useState } from "react";
-import { ActionSheetIOS, Alert } from "react-native";
+import { Alert } from "react-native";
+import {
+  showActionSheetWithOptions,
+  type ActionSheetItem,
+} from "@/lib/action-sheet";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -28,6 +32,7 @@ import { useWorkspaceStore } from "@/data/workspace-store";
 import { useCommentSelectStore } from "@/data/comment-select-store";
 import { useReplyTargetStore } from "@/data/stores/reply-target-store";
 import { useActorLookup } from "@/data/use-actor-name";
+import { WEB_URL } from "@/lib/urls";
 import {
   useDeleteComment,
   useResolveComment,
@@ -55,8 +60,7 @@ export function useCommentLongPress(
     const isRoot = !entry.parent_id;
     const resolved = !!entry.resolved_at;
     const hasContent = !!entry.content;
-    const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
-    const canCopyLink = !!(webUrl && wsSlug && issueIdentifier);
+    const canCopyLink = !!(wsSlug && issueIdentifier);
     const reactions = (entry.reactions ?? []) as Reaction[];
 
     Haptics.selectionAsync().catch(() => {});
@@ -72,26 +76,33 @@ export function useCommentLongPress(
       | { kind: "delete" }
       | { kind: "cancel" };
 
-    const options: string[] = [];
+    const options: ActionSheetItem[] = [];
     const actions: Action[] = [];
-    const push = (label: string, action: Action) => {
-      options.push(label);
+    const push = (
+      label: string,
+      action: Action,
+      icon?: ActionSheetItem["icon"],
+    ) => {
+      options.push({ label, icon });
       actions.push(action);
     };
 
-    push("Reply", { kind: "reply" });
-    push("React…", { kind: "react" });
+    push("Reply", { kind: "reply" }, "arrow-undo-outline");
+    push("React…", { kind: "react" }, "happy-outline");
     if (hasContent) {
-      push("Copy", { kind: "copy" });
-      push("Select Text", { kind: "select" });
+      push("Copy", { kind: "copy" }, "copy-outline");
+      push("Select Text", { kind: "select" }, "text-outline");
     }
-    if (canCopyLink) push("Copy Link", { kind: "copyLink" });
+    if (canCopyLink)
+      push("Copy Link", { kind: "copyLink" }, "link-outline");
     if (isRoot) {
-      push(resolved ? "Unresolve Thread" : "Resolve Thread", {
-        kind: "resolve",
-      });
+      push(
+        resolved ? "Unresolve Thread" : "Resolve Thread",
+        { kind: "resolve" },
+        resolved ? "refresh-outline" : "checkmark-circle-outline",
+      );
     }
-    if (isOwn) push("Delete", { kind: "delete" });
+    if (isOwn) push("Delete", { kind: "delete" }, "trash-outline");
     push("Cancel", { kind: "cancel" });
 
     const cancelButtonIndex = options.length - 1;
@@ -99,7 +110,7 @@ export function useCommentLongPress(
       ? actions.findIndex((a) => a.kind === "delete")
       : undefined;
 
-    ActionSheetIOS.showActionSheetWithOptions(
+    showActionSheetWithOptions(
       {
         options,
         cancelButtonIndex,
@@ -159,7 +170,7 @@ export function useCommentLongPress(
             return;
           case "copyLink": {
             if (!canCopyLink) return;
-            const url = `${webUrl}/${wsSlug}/issue/${issueIdentifier}#comment-${entry.id}`;
+            const url = `${WEB_URL}/${wsSlug}/issues/${issueId}#comment-${entry.id}`;
             Clipboard.setStringAsync(url);
             Haptics.notificationAsync(
               Haptics.NotificationFeedbackType.Success,
@@ -216,7 +227,7 @@ function presentReactSheet(args: {
   const options = [...emojis, "More reactions…", "Cancel"];
   const cancelButtonIndex = options.length - 1;
 
-  ActionSheetIOS.showActionSheetWithOptions(
+  showActionSheetWithOptions(
     { options, cancelButtonIndex },
     (i) => {
       if (i === cancelButtonIndex) return;

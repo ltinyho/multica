@@ -4,7 +4,7 @@
  * caller's highlight ring while the sheet is on screen).
  *
  * iOS-native first per apps/mobile/CLAUDE.md §UI components → waterfall
- * step 1: `ActionSheetIOS.showActionSheetWithOptions`. Zero custom
+ * step 1: `showActionSheetWithOptions`. Zero custom
  * layout, zero animation, zero overflow math, zero new deps.
  *
  * Item set (v1, conditional):
@@ -16,7 +16,10 @@
  * native alternative" threshold in apps/mobile/CLAUDE.md.
  */
 import { useCallback, useState } from "react";
-import { ActionSheetIOS } from "react-native";
+import {
+  showActionSheetWithOptions,
+  type ActionSheetItem,
+} from "@/lib/action-sheet";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import type { ChatMessage } from "@multica/core/types";
@@ -38,22 +41,26 @@ export function useChatMessageLongPress(
       | { kind: "select" }
       | { kind: "cancel" };
 
-    const options: string[] = [];
+    const options: ActionSheetItem[] = [];
     const actions: Action[] = [];
-    const push = (label: string, action: Action) => {
-      options.push(label);
+    const push = (
+      label: string,
+      action: Action,
+      icon?: ActionSheetItem["icon"],
+    ) => {
+      options.push({ label, icon });
       actions.push(action);
     };
 
     if (hasContent) {
-      push("Copy", { kind: "copy" });
-      push("Select Text", { kind: "select" });
+      push("Copy", { kind: "copy" }, "copy-outline");
+      push("Select Text", { kind: "select" }, "text-outline");
     }
     push("Cancel", { kind: "cancel" });
 
     const cancelButtonIndex = options.length - 1;
 
-    ActionSheetIOS.showActionSheetWithOptions(
+    showActionSheetWithOptions(
       { options, cancelButtonIndex },
       (i) => {
         setIsPressed(false);

@@ -13,16 +13,29 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const env = process.env.APP_ENV ?? "development";
   const isProd = env === "production";
   const isStaging = env === "staging";
+  const version = process.env.EXPO_APP_VERSION ?? "0.1.0";
+  const inboxService = process.env.EXPO_ANDROID_INBOX_SERVICE ?? "foreground";
+  const enableAndroidForegroundInboxService = inboxService !== "none";
+  const androidVersionCode = process.env.EXPO_ANDROID_VERSION_CODE
+    ? Number(process.env.EXPO_ANDROID_VERSION_CODE)
+    : 1;
+
+  // Self-host APK variants get a distinct package name so they can coexist
+  // with the official app on the same device.
+  const apkVariant = process.env.EXPO_APK_VARIANT;
+  const isSelfHost = apkVariant === "fg" || apkVariant === "nofg";
 
   return {
     ...config,
-    name: isProd
-      ? "Multica"
-      : isStaging
-        ? "Multica (Staging)"
-        : "Multica (Dev)",
+    name: isSelfHost
+      ? "Multica (SH)"
+      : isProd
+        ? "Multica"
+        : isStaging
+          ? "Multica (Staging)"
+          : "Multica (Dev)",
     slug: "multica-mobile",
-    version: "0.1.0",
+    version,
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     scheme: "multica",
@@ -47,9 +60,28 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           ? "ai.multica.mobile.staging"
           : (process.env.EXPO_BUNDLE_IDENTIFIER_DEV ?? "ai.multica.mobile.dev"),
     },
+    android: {
+      package: isSelfHost
+        ? "ai.multica.mobile.selfhost"
+        : isProd
+          ? (process.env.EXPO_ANDROID_PACKAGE_PROD ?? "ai.multica.mobile")
+          : isStaging
+            ? "ai.multica.mobile.staging"
+            : (process.env.EXPO_ANDROID_PACKAGE_DEV ?? "ai.multica.mobile.dev"),
+      adaptiveIcon: {
+        foregroundImage: "./assets/icon.png",
+        backgroundColor: "#FFFFFF",
+      },
+      versionCode: androidVersionCode,
+      permissions: ["READ_MEDIA_IMAGES", "READ_EXTERNAL_STORAGE"],
+    },
     plugins: [
       "expo-router",
       "expo-secure-store",
+      "expo-notifications",
+      ...(enableAndroidForegroundInboxService
+        ? ["./plugins/with-foreground-inbox-service"]
+        : []),
       "@react-native-community/datetimepicker",
       "react-native-enriched-markdown",
       [
@@ -70,6 +102,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         {
           ios: {
             buildReactNativeFromSource: true,
+          },
+          android: {
+            enableProguardInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
           },
         },
       ],

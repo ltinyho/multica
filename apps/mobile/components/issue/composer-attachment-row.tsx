@@ -29,6 +29,7 @@ import { useMemo } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLightbox } from "@/lib/markdown/lightbox-provider";
+import { resolveDownloadUrl } from "@/lib/urls";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { Text } from "@/components/ui/text";
@@ -147,7 +148,7 @@ function MentionChipView({
   const label = mention.type === "issue" ? mention.name : `@${mention.name}`;
 
   return (
-    <View className="flex-row items-center gap-1 h-7 px-2 rounded-full bg-primary/10">
+    <View className="flex-row items-center gap-1.5 h-7 px-2.5 rounded-full bg-primary/15">
       <Ionicons name={iconName} size={12} color={theme.primary} />
       <Text className="text-xs font-medium text-foreground">{label}</Text>
       <Pressable
@@ -194,7 +195,7 @@ function AttachmentChipView({ item, onRemove, onRetry }: AttachmentChipProps) {
       // no signed-URL round-trip, works the same pre/post upload.
       open(item.localUri);
     } else if (item.downloadUrl) {
-      void Linking.openURL(item.downloadUrl);
+      void Linking.openURL(resolveDownloadUrl(item.downloadUrl));
     }
   };
 
@@ -213,7 +214,7 @@ function AttachmentChipView({ item, onRemove, onRetry }: AttachmentChipProps) {
           ? `Retry upload of ${item.filename}`
           : `Open ${item.filename}`
       }
-      className="flex-row items-center gap-1 h-7 px-2 rounded-full bg-secondary active:opacity-80"
+      className="flex-row items-center gap-1.5 h-7 px-2.5 rounded-full bg-secondary/80 active:opacity-80"
     >
       {item.status === "uploading" ? (
         <ActivityIndicator size="small" color={theme.mutedForeground} />
