@@ -10,6 +10,7 @@ import { useIssueViewStore, useClearFiltersOnWorkspaceChange } from "@multica/co
 import { useIssuesScopeStore } from "@multica/core/issues/stores/issues-scope-store";
 import { ViewStoreProvider } from "@multica/core/issues/stores/view-store-context";
 import { filterIssues } from "../utils/filter";
+import { sortIssues } from "../utils/sort";
 import { BOARD_STATUSES } from "@multica/core/issues/config";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { issueAssigneeGroupsOptions, issueListOptions, childIssueProgressOptions, type AssigneeGroupedIssuesFilter } from "@multica/core/issues/queries";
@@ -47,12 +48,16 @@ export function IssuesPage() {
   const agentRunningFilter = useIssueViewStore((s) => s.agentRunningFilter);
   const usesAssigneeBoard = viewMode === "board" && grouping === "assignee";
 
+  // `updated_at` sorting is client-only — the server doesn't support it.
+  // Send `created_at` as a fallback so the server returns a stable order,
+  // then we re-sort on the client when `sortBy === "updated_at"`.
+  const serverSortBy = sortBy === "updated_at" ? "created_at" : sortBy;
   const sort = useMemo(
     () => ({
-      sort_by: sortBy,
+      sort_by: serverSortBy,
       sort_direction: sortBy !== "position" ? sortDirection : undefined,
     } as const),
-    [sortBy, sortDirection],
+    [serverSortBy, sortBy, sortDirection],
   );
 
   // Derive the set of issue ids that currently have at least one
@@ -95,14 +100,15 @@ export function IssuesPage() {
     ...assigneeGroupsOptions,
     enabled: usesAssigneeBoard,
   });
-  const allIssues = useMemo(
-    () => statusIssuesQuery.data ?? [],
-    [statusIssuesQuery.data],
-  );
-  const assigneeIssues = useMemo(
-    () => assigneeGroupsQuery.data?.groups.flatMap((group) => group.issues) ?? [],
-    [assigneeGroupsQuery.data],
-  );
+  // Apply client-side sorting for `updated_at` (server doesn't support it).
+  const allIssues = useMemo(() => {
+    const data = statusIssuesQuery.data ?? [];
+    return sortBy === "updated_at" ? sortIssues(data, sortBy, sortDirection) : data;
+  }, [statusIssuesQuery.data, sortBy, sortDirection]);
+  const assigneeIssues = useMemo(() => {
+    const data = assigneeGroupsQuery.data?.groups.flatMap((group) => group.issues) ?? [];
+    return sortBy === "updated_at" ? sortIssues(data, sortBy, sortDirection) : data;
+  }, [assigneeGroupsQuery.data, sortBy, sortDirection]);
   const loading = usesAssigneeBoard
     ? assigneeGroupsQuery.isLoading
     : statusIssuesQuery.isLoading;

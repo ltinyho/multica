@@ -85,16 +85,22 @@ export function ExecutionLogSection({ issueId }: ExecutionLogSectionProps) {
 
   const activeTasks = useMemo(
     () =>
-      tasks.filter(
-        (t) =>
-          t.status === "queued" ||
-          t.status === "dispatched" ||
-          // Daemon-parked task on a busy local_directory — still active
-          // (waiting on a path lock), not terminal. Surfacing it here is
-          // what tells the user the agent is alive and will resume.
-          t.status === "waiting_local_directory" ||
-          t.status === "running",
-      ),
+      tasks
+        .filter(
+          (t) =>
+            t.status === "queued" ||
+            t.status === "dispatched" ||
+            // Daemon-parked task on a busy local_directory — still active
+            // (waiting on a path lock), not terminal. Surfacing it here is
+            // what tells the user the agent is alive and will resume.
+            t.status === "waiting_local_directory" ||
+            t.status === "running",
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() -
+            new Date(a.created_at).getTime(),
+        ),
     [tasks],
   );
 
