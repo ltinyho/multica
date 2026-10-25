@@ -26,6 +26,7 @@ import { Linking, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Attachment } from "@multica/core/types";
 import { MarkdownImage } from "@/lib/markdown/markdown-image";
+import { resolveDownloadUrl } from "@/lib/urls";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { Text } from "@/components/ui/text";
@@ -113,7 +114,7 @@ function FileCard({
         // common types (PDF, txt). Mirrors what the markdown link renderer
         // does for `[name](url)`.
         if (attachment.download_url) {
-          void Linking.openURL(attachment.download_url);
+          void Linking.openURL(resolveDownloadUrl(attachment.download_url));
         }
       }}
       accessibilityRole="button"

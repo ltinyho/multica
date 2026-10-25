@@ -39,7 +39,7 @@ export function IssueActionBar({
   const deletePin = useDeletePin();
 
   const issueLink = wsSlug
-    ? `${WEB_URL}/${wsSlug}/issue/${issueIdentifier}`
+    ? `${WEB_URL}/${wsSlug}/issues/${issueId}`
     : null;
 
   const handleOpenOnWeb = () => {

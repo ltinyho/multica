@@ -5,9 +5,12 @@
  * — tap opens the sessions + agent picker sheet.
  */
 import { Pressable, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { Agent, ChatSession } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { ActorAvatar } from "@/components/ui/actor-avatar";
+import { useColorScheme } from "@/lib/use-color-scheme";
+import { THEME } from "@/lib/theme";
 
 interface Props {
   currentSession: ChatSession | null;
@@ -22,6 +25,7 @@ export function ChatTitleButton({
 }: Props) {
   const agentName = currentAgent?.name ?? "Chat";
   const subtitle = currentSession?.title || "New chat";
+  const { colorScheme } = useColorScheme();
 
   return (
     <Pressable
@@ -37,15 +41,23 @@ export function ChatTitleButton({
         size={24}
         showPresence
       />
-      <View>
-        <View className="flex-row items-center gap-1">
+      {/* flex-1 gives the name a definite width: with an intrinsic-width
+          wrapper Android under-measured the semibold text and ellipsized
+          names that had plenty of room ("devops_co…"). */}
+      <View className="flex-1 min-w-0">
+        <View className="flex-row items-center">
           <Text
-            className="text-base font-semibold text-foreground"
+            className="text-base font-semibold text-foreground flex-shrink"
             numberOfLines={1}
           >
             {agentName}
           </Text>
-          <Text className="text-xs text-muted-foreground">▼</Text>
+          <Ionicons
+            name="chevron-down"
+            size={14}
+            color={THEME[colorScheme].mutedForeground}
+            style={{ marginLeft: 4 }}
+          />
         </View>
         <Text
           className="text-xs text-muted-foreground"

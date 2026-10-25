@@ -16,7 +16,10 @@
  * native alternative" threshold in apps/mobile/CLAUDE.md.
  */
 import { useCallback, useState } from "react";
-import { showActionSheetWithOptions } from "@/lib/action-sheet";
+import {
+  showActionSheetWithOptions,
+  type ActionSheetItem,
+} from "@/lib/action-sheet";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import type { ChatMessage } from "@multica/core/types";
@@ -38,16 +41,20 @@ export function useChatMessageLongPress(
       | { kind: "select" }
       | { kind: "cancel" };
 
-    const options: string[] = [];
+    const options: ActionSheetItem[] = [];
     const actions: Action[] = [];
-    const push = (label: string, action: Action) => {
-      options.push(label);
+    const push = (
+      label: string,
+      action: Action,
+      icon?: ActionSheetItem["icon"],
+    ) => {
+      options.push({ label, icon });
       actions.push(action);
     };
 
     if (hasContent) {
-      push("Copy", { kind: "copy" });
-      push("Select Text", { kind: "select" });
+      push("Copy", { kind: "copy" }, "copy-outline");
+      push("Select Text", { kind: "select" }, "text-outline");
     }
     push("Cancel", { kind: "cancel" });
 

@@ -11,9 +11,8 @@
  * owns its own copy per the "mirror, don't import" rule in apps/mobile/CLAUDE.md).
  *
  * `staleTime: Infinity` everywhere — caches are kept fresh by WS event
- * handlers, not by background refetch. Foreground / reconnect invalidates
- * are scoped to each owning hook (see use-chat-sessions-realtime.ts and
- * use-chat-session-realtime.ts).
+ * handlers, not by background refetch. WS patches and reconnect invalidates
+ * live in use-chat-sessions-realtime.ts (workspace-wide, every session).
  */
 import { queryOptions } from "@tanstack/react-query";
 import { api } from "@/data/api";
@@ -22,9 +21,14 @@ export const chatKeys = {
   all: (wsId: string | null) => ["chat", wsId] as const,
   sessions: (wsId: string | null) =>
     [...chatKeys.all(wsId), "sessions"] as const,
-  messages: (sessionId: string) => ["chat", "messages", sessionId] as const,
+  /** Prefix over every session's messages — reconnect invalidation. */
+  allMessages: () => ["chat", "messages"] as const,
+  messages: (sessionId: string) =>
+    [...chatKeys.allMessages(), sessionId] as const,
+  /** Prefix over every session's pending task — reconnect invalidation. */
+  allPendingTasks: () => ["chat", "pending-task"] as const,
   pendingTask: (sessionId: string) =>
-    ["chat", "pending-task", sessionId] as const,
+    [...chatKeys.allPendingTasks(), sessionId] as const,
   /** Per-task live execution timeline (thinking / tool_use / tool_result /
    *  text / error rows). Cache is workspace-agnostic — keyed only on
    *  `taskId` — matching web's `chatKeys.taskMessages` shape so future

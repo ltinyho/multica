@@ -10,3 +10,13 @@ export const WS_URL =
 
 export const WEB_URL =
   process.env.EXPO_PUBLIC_WEB_URL ?? process.env.VITE_APP_URL ?? DEFAULT_WEB_URL;
+
+/** Resolve a possibly-relative download URL to an absolute HTTPS URL.
+ *  The server returns `download_url` as a relative path (e.g.
+ *  `/uploads/workspaces/...`); `Linking.openURL` and image loaders need
+ *  a full URL. Already-absolute URLs pass through unchanged. */
+export function resolveDownloadUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `${API_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+}

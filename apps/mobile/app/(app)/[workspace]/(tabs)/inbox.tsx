@@ -24,7 +24,10 @@ import { useWorkspaceStore } from "@/data/workspace-store";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { deduplicateInboxItems } from "@/lib/inbox-display";
-import { showActionSheetWithOptions } from "@/lib/action-sheet";
+import {
+  showActionSheetWithOptions,
+  type ActionSheetItem,
+} from "@/lib/action-sheet";
 
 export default function Inbox() {
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
@@ -55,13 +58,18 @@ export default function Inbox() {
       markRead.mutate(item.id);
     }
     if (item.issue_id && wsSlug) {
+      const commentId = item.details?.comment_id;
       router.push({
         pathname: "/[workspace]/issue/[id]",
         params: {
           workspace: wsSlug,
           id: item.issue_id,
-          highlight: item.details?.comment_id,
-          h: String(Date.now()),
+          // Scroll to the target comment when available (e.g. new_comment,
+          // mentioned). The nonce `h` ensures re-tapping the same row
+          // re-fires the highlight animation.
+          ...(commentId
+            ? { highlight: commentId, h: Date.now().toString() }
+            : {}),
         },
       });
     }
@@ -73,12 +81,12 @@ export default function Inbox() {
   // the iOS red treatment + Alert confirm.
   const onPressMenu = () => {
     const options = [
-      "Cancel",
-      "Mark all read",
-      "Archive all read",
-      "Archive completed",
-      "Archive all",
-    ];
+      { label: "Cancel" },
+      { label: "Mark all read", icon: "checkmark-done-outline" },
+      { label: "Archive all read", icon: "archive-outline" },
+      { label: "Archive completed", icon: "checkmark-circle-outline" },
+      { label: "Archive all", icon: "trash-outline" },
+    ] satisfies ActionSheetItem[];
     showActionSheetWithOptions(
       {
         options,

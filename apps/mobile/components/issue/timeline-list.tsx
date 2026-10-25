@@ -68,14 +68,22 @@
  *     intentionally don't try to land precisely on a specific comment —
  *     we land at the bottom and let `RootHighlightOverlay` claim the
  *     target when the user scrolls past it. `startRenderingFromBottom`
- *     is NOT enabled: a normal issue-open should show the header (title,
- *     description, status) first, not jump straight to the latest reply.
+ *     is always enabled so the user lands on the latest comment; a
+ *     deferred `scrollToEnd` effect catches the async data load.
  *   - Spacing between rows. FlashList ignores `gap-*` on
  *     `contentContainer` the same way it does in chat-message-list.tsx —
  *     we use `ItemSeparatorComponent` for the 12 px breathing room and
  *     `ListHeaderComponentStyle` to add the same gap below the header.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -90,10 +98,11 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Issue, TimelineEntry } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { IssueHeaderCard } from "./issue-header-card";
-import { IssueActionBar } from "./issue-action-bar";
 import { IssueDescription } from "./issue-description";
 import { IssueReactionRow } from "./issue-reaction-row";
+import { SubIssuesSection } from "./sub-issues-section";
 import { ActivityRow } from "./activity-row";
+import { ActivityGroupRow } from "./activity-group-row";
 import { CommentCard } from "./comment-card";
 import { useLastViewedStore } from "@/data/stores/last-viewed-store";
 import { coalesceTimeline } from "@/lib/timeline-coalesce";
@@ -108,10 +117,6 @@ interface Props {
   timelineLoading: boolean;
   refreshing: boolean;
   onRefresh: () => void;
-  /** Whether the issue is pinned by the current user. */
-  isPinned: boolean;
-  /** Opens the overflow action sheet (Edit details, Delete). */
-  onMore: () => void;
   /** Inbox deep-link target. Root comment id OR reply id — replies live
    *  inline inside their parent's CommentCard, so a reply target scrolls
    *  to the parent's row and the card highlights the matching child. */
@@ -139,17 +144,23 @@ const AT_BOTTOM_SLACK_PX = 80;
  *  / activity uuid. */
 const DIVIDER_ID = "__divider__";
 
-export function TimelineList({
+export interface TimelineListHandle {
+  scrollToEnd: (opts?: { animated?: boolean }) => void;
+  scrollToStart: (opts?: { animated?: boolean }) => void;
+  /** Scroll to a specific comment and highlight it. Finds the row
+   *  containing the comment (root or reply) and scrolls to its index. */
+  scrollToComment: (commentId: string) => void;
+}
+
+export const TimelineList = forwardRef<TimelineListHandle, Props>(function TimelineList({
   issue,
   entries,
   timelineLoading,
   refreshing,
   onRefresh,
-  isPinned,
-  onMore,
   highlightCommentId,
   highlightNonce,
-}: Props) {
+}: Props, ref) {
   // Top-level selection subscription gates the outer "tap-outside-to-dismiss"
   // Pressable below. When null, the Pressable stays disabled and every tap
   // passes through to comment cards / chip rows / reactions normally.
@@ -167,6 +178,28 @@ export function TimelineList({
   }, [entries]);
 
   const listRef = useRef<FlashListRef<TimelineRow>>(null);
+
+  useImperativeHandle(ref, () => ({
+    scrollToEnd: (opts) => listRef.current?.scrollToEnd(opts),
+    scrollToStart: (opts) => listRef.current?.scrollToOffset({ offset: 0, animated: opts?.animated }),
+    scrollToComment: (commentId: string) => {
+      const idx = dataWithDivider.findIndex(
+        (r) =>
+          r.entry.id === commentId ||
+          r.replies.some((rep) => rep.id === commentId),
+      );
+      if (idx < 0) return;
+      setHighlightedId(commentId);
+      setTimeout(() => setHighlightedId(null), HIGHLIGHT_HOLD_MS);
+      try {
+        listRef.current?.scrollToIndex({ index: idx, animated: true });
+      } catch {
+        // FlashList may throw if the index hasn't been measured yet;
+        // the scroll still happens approximately.
+      }
+    },
+  }));
+
   // Gates single-shot per (commentId, nonce) tuple. Re-tap from inbox
   // bumps the nonce → ref no longer matches → effect re-fires.
   const lastStampRef = useRef<string | null>(null);
@@ -204,6 +237,23 @@ export function TimelineList({
     return () => clearTimeout(fade);
   }, [highlightCommentId, highlightNonce, data.length]);
 
+  // ── Auto-scroll to bottom on first data load ───────────────────────────
+  // When the user opens an issue (from inbox or issue list), the timeline
+  // data arrives async. `startRenderingFromBottom` handles the initial
+  // FlashList render, but if data wasn't available at mount time (network
+  // latency), FlashList's one-shot initial-scroll already completed at
+  // length 0. This effect catches the empty → non-empty transition and
+  // scrolls to the end so the user lands on the latest comment.
+  const initialScrolledRef = useRef(false);
+  useEffect(() => {
+    if (data.length === 0 || initialScrolledRef.current) return;
+    initialScrolledRef.current = true;
+    // Small delay to let FlashList finish layout after data insertion.
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated: false });
+    });
+  }, [data.length]);
+
   // ── New-comment-while-reading chip ────────────────────────────────────
   // After landing, if WS appends new entries while the user is NOT at the
   // bottom, surface a floating "↓ N new" chip instead of silently shifting
@@ -224,6 +274,9 @@ export function TimelineList({
     setNewCount((prev) => prev + diff);
   }, [data.length]);
 
+  // ── "Jump to top" visibility ────────────────────────────────────────────
+  const [showJumpToTop, setShowJumpToTop] = useState(false);
+
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
@@ -236,6 +289,8 @@ export function TimelineList({
       if (!wasAtBottom && isAtBottomRef.current && newCount > 0) {
         setNewCount(0);
       }
+      // Show "jump to top" when scrolled away from the top.
+      setShowJumpToTop(contentOffset.y > 400);
     },
     [newCount],
   );
@@ -243,6 +298,10 @@ export function TimelineList({
   const onJumpToNew = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true });
     setNewCount(0);
+  }, []);
+
+  const onJumpToStart = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, []);
 
   // ── Inject divider as a sentinel row before its anchor entry ──────────
@@ -334,19 +393,9 @@ export function TimelineList({
   const ListHeader = (
     <View>
       <IssueHeaderCard issue={issue} />
-      <IssueActionBar
-        issueId={issue.id}
-        issueIdentifier={issue.identifier}
-        isPinned={isPinned}
-        onMore={onMore}
-      />
       <IssueDescription issueId={issue.id} description={issue.description} />
       <IssueReactionRow issue={issue} />
-      <View className="px-4 pt-4 pb-2 border-t border-border/60">
-        <Text className="text-xs uppercase tracking-wider text-muted-foreground/80 font-semibold">
-          Activity
-        </Text>
-      </View>
+      <SubIssuesSection issueId={issue.id} />
       {timelineLoading && (!entries || entries.length === 0) ? (
         <View className="py-6 items-center">
           <ActivityIndicator />
@@ -356,13 +405,9 @@ export function TimelineList({
   );
 
   // When a fresh inbox deep-link arrives AND timeline data has loaded, force
-  // a FlashList remount so `getInitialScrollIndex()` re-runs with
-  // `startRenderingFromBottom: true` and lands on the last data item. If we
-  // mounted before data arrived, FlashList's one-shot initial-scroll
-  // (useRecyclerViewController.applyInitialScrollIndex, gated on
-  // `initialScrollCompletedRef`) would have already declared completion at
-  // length 0 and never re-fire. Switching the key when data goes empty →
-  // non-empty under a live highlight is the cheapest way to re-arm it.
+  // a FlashList remount so the highlight overlay can target the right row.
+  // Switching the key when data goes empty → non-empty under a live
+  // highlight is the cheapest way to re-arm it.
   const hasData = dataWithDivider.length > 0;
   const flashListKey =
     highlightCommentId && hasData
@@ -404,15 +449,16 @@ export function TimelineList({
         // Tap-on-row inside the list (long-press a comment, tap a
         // reaction) should still register even when the keyboard is up.
         keyboardShouldPersistTaps="handled"
-        // FlashList v2 MVCP. `startRenderingFromBottom` only applies when a
-        // deep-link is active — a normal issue-open lands at the top so the
-        // user sees the header (title, description, status) first. After
-        // initial paint the (always-on) MVCP keeps visible content stable
-        // when upper rows resize via async markdown / WS events; we do NOT
-        // set `autoscrollToBottomThreshold` because timeline uses an
-        // explicit "↓ N new" chip instead of silently following appends.
+        // FlashList v2 MVCP. `startRenderingFromBottom` is always on so the
+        // user lands on the latest comment when opening an issue. A deferred
+        // `scrollToEnd` effect catches the async data load (network latency
+        // means data may not be present at mount time). After initial paint
+        // the (always-on) MVCP keeps visible content stable when upper rows
+        // resize via async markdown / WS events; we do NOT set
+        // `autoscrollToBottomThreshold` because timeline uses an explicit
+        // "↓ N new" chip instead of silently following appends.
         maintainVisibleContentPosition={{
-          startRenderingFromBottom: !!highlightCommentId,
+          startRenderingFromBottom: true,
         }}
         // "Activity" is a section heading, not a sibling row — it should
         // hug the first entry the way iOS Settings / Linear sections do.
@@ -423,6 +469,9 @@ export function TimelineList({
         renderItem={({ item }) => {
           if (item.entry.id === DIVIDER_ID) {
             return <UnreadDivider />;
+          }
+          if (item.activityGroup) {
+            return <ActivityGroupRow entries={item.activityGroup} />;
           }
           return item.entry.type === "comment" ? (
             <CommentCard
@@ -454,12 +503,15 @@ export function TimelineList({
         contentContainerStyle={{ paddingBottom: 16 }}
       />
       </Pressable>
+      {showJumpToTop ? (
+        <JumpToTopChip onPress={onJumpToStart} />
+      ) : null}
       {newCount > 0 ? (
         <NewCommentChip count={newCount} onPress={onJumpToNew} />
       ) : null}
     </View>
   );
-}
+});
 
 /**
  * 12 px vertical gap between every timeline row. FlashList ignores
@@ -486,6 +538,33 @@ function UnreadDivider() {
       </Text>
       <View className="flex-1 h-px bg-destructive/30" />
     </View>
+  );
+}
+
+/**
+ * Floating "↑ Top" chip pinned at the bottom-right, visible when the
+ * user has scrolled away from the top. Tap → smooth scroll to offset 0.
+ */
+function JumpToTopChip({ onPress }: { onPress: () => void }) {
+  const { colorScheme } = useColorScheme();
+  const fg = THEME[colorScheme].primaryForeground;
+  return (
+    <Pressable
+      onPress={onPress}
+      className="absolute bottom-3 right-4 px-3 py-2 rounded-full bg-primary/80 active:opacity-80 flex-row items-center gap-1.5"
+      accessibilityRole="button"
+      accessibilityLabel="Jump to top"
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
+      }}
+    >
+      <Ionicons name="arrow-up" size={14} color={fg} />
+      <Text className="text-sm font-semibold text-primary-foreground">Top</Text>
+    </Pressable>
   );
 }
 

@@ -23,8 +23,8 @@
  * leaves the real tab button entirely alone.
  *
  * Visual conventions inside the popover (apps/mobile/CLAUDE.md):
- *   - All glyphs are SF Symbols rendered via expo-image (`sf:` source),
- *     so they share the visual language of the bottom tab bar icons.
+ *   - Glyphs go through `<SymbolIcon>`: SF Symbols on iOS, Ionicons on
+ *     Android (expo-image's `sf:` source renders nothing there).
  *   - All colours route through THEME tokens (foreground /
  *     mutedForeground / secondary), so dark mode is automatic.
  *   - Workspace is collapsed to a single `<WorkspaceCard>` row (icon +
@@ -34,9 +34,9 @@
  *     Earlier shape (every workspace inlined here) made the popover long
  *     and offered no friction against accidental taps.
  */
-import { useMemo } from "react";
+import { useMemo, useState, type ComponentProps } from "react";
 import { Image, Pressable, View } from "react-native";
-import { Image as ExpoImage } from "expo-image";
+import type { Ionicons } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -50,12 +50,14 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Text } from "@/components/ui/text";
+import { SymbolIcon } from "@/components/ui/symbol-icon";
 import { workspaceListOptions } from "@/data/queries/workspaces";
 import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { resolveDownloadUrl } from "@/lib/urls";
 
 // iOS bottom tab bar default height (above safe-area). React Navigation
 // doesn't expose this as a layout constant, but the value is stable
@@ -66,16 +68,21 @@ const TAB_BAR_HEIGHT = 49;
 
 interface NavItem {
   label: string;
-  /** SF Symbol name, rendered via expo-image `source: "sf:<name>"`. */
+  /** SF Symbol name (iOS). */
   icon: string;
+  /** Ionicons equivalent (Android). */
+  ionicon: ComponentProps<typeof Ionicons>["name"];
   /** Path under /:slug/ — final href is `/${slug}${path}`. */
   path: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Pinned", icon: "pin", path: "/more/pins" },
-  { label: "Issues", icon: "list.bullet", path: "/more/issues" },
-  { label: "Projects", icon: "square.stack", path: "/more/projects" },
+  { label: "Pinned", icon: "pin", ionicon: "pin-outline", path: "/more/pins" },
+  { label: "Issues", icon: "list.bullet", ionicon: "list-outline", path: "/more/issues" },
+  { label: "Projects", icon: "square.stack", ionicon: "layers-outline", path: "/more/projects" },
+  { label: "Agents", icon: "cpu", ionicon: "hardware-chip-outline", path: "/more/agents" },
+  { label: "Squads", icon: "person.3", ionicon: "people-outline", path: "/more/squads" },
+  { label: "Autopilots", icon: "bolt", ionicon: "flash-outline", path: "/autopilots" },
 ];
 
 export function MoreTabDropdownAnchor({
@@ -157,10 +164,11 @@ export function MoreTabDropdownAnchor({
                 isActive(item.path) && "bg-secondary",
               )}
             >
-              <ExpoImage
-                source={`sf:${item.icon}`}
-                tintColor={t.foreground}
-                style={{ width: 18, height: 18 }}
+              <SymbolIcon
+                sf={item.icon}
+                ionicon={item.ionicon}
+                size={18}
+                color={t.foreground}
               />
               <Text className="text-sm text-foreground">{item.label}</Text>
             </DropdownMenuItem>
@@ -187,22 +195,27 @@ function UserCard({
   chevronTint: string;
 }) {
   const initial = (user?.name ?? user?.email ?? "U").charAt(0).toUpperCase();
+  // Server avatar URLs may be relative upload paths — resolve against the
+  // API origin like ActorAvatar does, and fall back to the initial if the
+  // image fails to load instead of leaving an empty grey circle.
+  const [failed, setFailed] = useState(false);
+  const avatarUrl =
+    user?.avatar_url && !failed ? resolveDownloadUrl(user.avatar_url) : null;
   return (
     <DropdownMenuItem
       onPress={onPress}
       className="h-12 gap-3"
       accessibilityLabel="Account settings"
     >
-      {user?.avatar_url ? (
+      {avatarUrl ? (
         <Image
-          source={{ uri: user.avatar_url }}
+          source={{ uri: avatarUrl }}
+          onError={() => setFailed(true)}
           className="size-8 rounded-full bg-muted"
         />
       ) : (
-        <View className="size-8 rounded-full bg-muted items-center justify-center">
-          <Text className="text-xs font-medium text-muted-foreground">
-            {initial}
-          </Text>
+        <View className="size-8 rounded-full bg-brand/15 items-center justify-center">
+          <Text className="text-sm font-semibold text-brand">{initial}</Text>
         </View>
       )}
       <View className="flex-1 min-w-0">
@@ -221,10 +234,11 @@ function UserCard({
           </Text>
         ) : null}
       </View>
-      <ExpoImage
-        source="sf:chevron.right"
-        tintColor={chevronTint}
-        style={{ width: 12, height: 12 }}
+      <SymbolIcon
+        sf="chevron.right"
+        ionicon="chevron-forward"
+        size={14}
+        color={chevronTint}
       />
     </DropdownMenuItem>
   );
@@ -269,10 +283,11 @@ function WorkspaceCard({
       }
     >
       <View className="size-8 rounded-md bg-muted items-center justify-center">
-        <ExpoImage
-          source="sf:building.2"
-          tintColor={iconTint}
-          style={{ width: 16, height: 16 }}
+        <SymbolIcon
+          sf="building.2"
+          ionicon="business-outline"
+          size={16}
+          color={iconTint}
         />
       </View>
       <View className="flex-1 min-w-0">
@@ -284,10 +299,11 @@ function WorkspaceCard({
         </Text>
       </View>
       {canSwitch ? (
-        <ExpoImage
-          source="sf:chevron.right"
-          tintColor={chevronTint}
-          style={{ width: 12, height: 12 }}
+        <SymbolIcon
+          sf="chevron.right"
+          ionicon="chevron-forward"
+          size={14}
+          color={chevronTint}
         />
       ) : null}
     </DropdownMenuItem>

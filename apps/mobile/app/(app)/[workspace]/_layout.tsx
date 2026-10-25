@@ -308,6 +308,58 @@ export default function WorkspaceLayout() {
           options={{ title: "Agents", headerBackTitle: "Back" }}
         />
         <Stack.Screen
+          name="more/squads"
+          options={{ title: "Squads", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="more/squads/[id]"
+          options={{ title: "Squad", headerBackTitle: "Squads" }}
+        />
+        <Stack.Screen
+          name="more/squads/[id]/edit"
+          options={{
+            title: "Edit Squad",
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
+        />
+        <Stack.Screen
+          name="agent/[id]"
+          options={{ title: "Agent", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="agent-edit/[id]"
+          options={{
+            title: "Edit Agent",
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
+        />
+        <Stack.Screen
+          name="autopilots"
+          options={{ title: "Autopilots", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="autopilot/[id]/index"
+          options={{ title: "Autopilot", headerBackTitle: "Back" }}
+        />
+        <Stack.Screen
+          name="autopilot/[id]/edit"
+          options={{
+            title: "Edit Autopilot",
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
+        />
+        <Stack.Screen
+          name="autopilot/new"
+          options={{
+            title: "New Autopilot",
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
+        />
+        <Stack.Screen
           name="more/pins"
           options={{ title: "Pinned", headerBackTitle: "Back" }}
         />

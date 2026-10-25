@@ -72,6 +72,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -192,7 +193,8 @@ class InboxForegroundService : Service() {
 
       val title = item.optString("title").ifBlank { "New inbox message" }
       val body = item.optString("body").ifBlank { title }
-      sendInboxNotification(id, title, body)
+      val issueId = item.optString("issue_id").ifBlank { null }
+      sendInboxNotification(id, title, body, issueId)
       notified.add(id)
       changed = true
     }
@@ -202,13 +204,13 @@ class InboxForegroundService : Service() {
     }
   }
 
-  private fun sendInboxNotification(id: String, title: String, body: String) {
+  private fun sendInboxNotification(id: String, title: String, body: String, issueId: String? = null) {
     val notification = NotificationCompat.Builder(this, INBOX_CHANNEL_ID)
       .setSmallIcon(applicationInfo.icon)
       .setContentTitle(title)
       .setContentText(body)
       .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-      .setContentIntent(launchIntent())
+      .setContentIntent(launchIntent(issueId))
       .setAutoCancel(true)
       .setCategory(NotificationCompat.CATEGORY_MESSAGE)
       .setDefaults(NotificationCompat.DEFAULT_ALL)
@@ -251,12 +253,18 @@ class InboxForegroundService : Service() {
     wakeLock = null
   }
 
-  private fun launchIntent(): PendingIntent? {
+  private fun launchIntent(issueId: String? = null): PendingIntent? {
     val intent = packageManager.getLaunchIntentForPackage(packageName)
       ?.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    if (issueId != null) {
+      val workspaceSlug = prefs().getString(KEY_WORKSPACE_SLUG, null)
+      if (workspaceSlug != null) {
+        intent?.data = Uri.parse("multica://$workspaceSlug/issue/$issueId")
+      }
+    }
     return PendingIntent.getActivity(
       this,
-      0,
+      if (issueId != null) issueId.hashCode() else 0,
       intent,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )

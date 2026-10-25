@@ -10,24 +10,34 @@
  * Stack.Screen with title "Issue". We override that here once the data
  * lands so the navigation bar shows `MUL-123` (Linear-style).
  */
-import { useCallback, useEffect } from "react";
-import { ActivityIndicator, Alert, Linking, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Linking, Pressable, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
 import type { Issue } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { TimelineList } from "@/components/issue/timeline-list";
+import {
+  TimelineList,
+  type TimelineListHandle,
+} from "@/components/issue/timeline-list";
 import { AgentHeaderBadge } from "@/components/issue/agent-header-badge";
 import { InlineCommentComposer } from "@/components/issue/inline-comment-composer";
+import { ThreadListPanel } from "@/components/issue/thread-list-panel";
+import { IssueDetailLoading } from "@/components/issue/issue-detail-loading";
+import { buildTimelineRows } from "@/lib/timeline-thread";
+import { coalesceTimeline } from "@/lib/timeline-coalesce";
 import {
+  findCachedIssue,
   issueDetailOptions,
   issueKeys,
   issueTimelineOptions,
 } from "@/data/queries/issues";
-import { useDeleteIssue } from "@/data/mutations/issues";
+import { useDeleteIssue, useResolveComment } from "@/data/mutations/issues";
 import { pinListOptions } from "@/data/queries/pins";
 import { useCreatePin, useDeletePin } from "@/data/mutations/pins";
 import { useAuthStore } from "@/data/auth-store";
@@ -36,7 +46,10 @@ import { useWorkspaceStore } from "@/data/workspace-store";
 import { useViewedIssuesStore } from "@/data/viewed-issues-store";
 import { useCommentSelectStore } from "@/data/comment-select-store";
 import { useReplyTargetStore } from "@/data/stores/reply-target-store";
-import { showActionSheetWithOptions } from "@/lib/action-sheet";
+import {
+  showActionSheetWithOptions,
+  type ActionSheetItem,
+} from "@/lib/action-sheet";
 import { WEB_URL } from "@/lib/urls";
 
 export default function IssueDetail() {
@@ -52,9 +65,31 @@ export default function IssueDetail() {
   }>();
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const qc = useQueryClient();
+  const insets = useSafeAreaInsets();
 
-  const detail = useQuery(issueDetailOptions(wsId, id));
+  // Rows in My Issues / Issues / Project lists already carry the full
+  // issue, so render that immediately and let `getIssue` refresh it in the
+  // background — no blank screen between tap and first paint.
+  const detail = useQuery({
+    ...issueDetailOptions(wsId, id),
+    placeholderData: () => findCachedIssue(qc, wsId, id),
+  });
   const timeline = useQuery(issueTimelineOptions(wsId, id));
+  const timelineRef = useRef<TimelineListHandle>(null);
+
+  // Thread list panel state
+  const [threadPanelVisible, setThreadPanelVisible] = useState(false);
+  const timelineRows = useMemo(
+    () =>
+      timeline.data
+        ? buildTimelineRows(coalesceTimeline(timeline.data))
+        : [],
+    [timeline.data],
+  );
+  const threadCount = useMemo(
+    () => timelineRows.filter((r) => r.entry.type === "comment").length,
+    [timelineRows],
+  );
 
   // Subscribe to per-issue WS events: status/priority/assignee/label
   // changes, comments, activity, reactions, agent task progress.
@@ -91,8 +126,25 @@ export default function IssueDetail() {
     ]);
   }, [detail, qc, wsId, id]);
 
+  const handleJumpToThread = useCallback(
+    (commentId: string) => {
+      setThreadPanelVisible(false);
+      // Small delay to let the modal close before scrolling.
+      setTimeout(() => timelineRef.current?.scrollToComment(commentId), 300);
+    },
+    [],
+  );
+
   const issue = detail.data;
   const deleteIssue = useDeleteIssue();
+  const resolveComment = useResolveComment(id);
+
+  const handleResolveThread = useCallback(
+    (commentId: string, resolved: boolean) => {
+      resolveComment.mutate({ commentId, resolved });
+    },
+    [resolveComment],
+  );
   const userId = useAuthStore((s) => s.user?.id ?? null);
   const { data: pins } = useQuery(pinListOptions(wsId, userId));
   const isPinned =
@@ -106,13 +158,18 @@ export default function IssueDetail() {
   // version that skips actions already visible in the bar.
   const onPressMore = useCallback(() => {
     if (!issue || !wsSlug) return;
-    const issueLink = `${WEB_URL}/${wsSlug}/issue/${issue.identifier}`;
-    const options: string[] = ["Cancel"];
-    options.push(isPinned ? "Unpin" : "Pin");
-    options.push("Edit details");
-    options.push("Copy link");
-    options.push("Open on web");
-    options.push("Delete issue");
+    const issueLink = `${WEB_URL}/${wsSlug}/issues/${issue.id}`;
+    const pinIcon = isPinned ? "pin-outline" : "pin";
+    const options = [
+      { label: "Cancel" },
+      { label: isPinned ? "Unpin" : "Pin", icon: pinIcon },
+      { label: "Edit details", icon: "create-outline" },
+      { label: "Copy link", icon: "link-outline" },
+      { label: "Open on web", icon: "globe-outline" },
+      { label: "Jump to top", icon: "arrow-up-outline" },
+      { label: "Jump to bottom", icon: "arrow-down-outline" },
+      { label: "Delete issue", icon: "trash-outline" },
+    ] satisfies ActionSheetItem[];
     const destructiveIndex = options.length - 1;
     showActionSheetWithOptions(
       {
@@ -122,7 +179,7 @@ export default function IssueDetail() {
         title: issue.identifier,
       },
       (i) => {
-        const label = options[i];
+        const label = options[i]?.label;
         if (label === "Pin") {
           createPin.mutate({ item_type: "issue", item_id: issue.id });
         } else if (label === "Unpin") {
@@ -133,6 +190,10 @@ export default function IssueDetail() {
           Clipboard.setStringAsync(issueLink);
         } else if (label === "Open on web" && issueLink) {
           Linking.openURL(issueLink);
+        } else if (label === "Jump to top") {
+          timelineRef.current?.scrollToStart({ animated: true });
+        } else if (label === "Jump to bottom") {
+          timelineRef.current?.scrollToEnd({ animated: true });
         } else if (label === "Delete issue") {
           confirmDelete(issue, () =>
             deleteIssue.mutate(issue.id, {
@@ -143,34 +204,6 @@ export default function IssueDetail() {
       },
     );
   }, [issue, wsSlug, deleteIssue, isPinned, createPin, deletePin]);
-
-  // Overflow menu for the action bar's "More" button — skips actions
-  // already visible as dedicated buttons (Pin, Copy link, Open on web).
-  const onPressMoreOverflow = useCallback(() => {
-    if (!issue || !wsSlug) return;
-    const options: string[] = ["Cancel", "Edit details", "Delete issue"];
-    const destructiveIndex = options.length - 1;
-    showActionSheetWithOptions(
-      {
-        options,
-        cancelButtonIndex: 0,
-        destructiveButtonIndex: destructiveIndex,
-        title: issue.identifier,
-      },
-      (i) => {
-        const label = options[i];
-        if (label === "Edit details") {
-          router.push(`/${wsSlug}/issue/${issue.id}/edit`);
-        } else if (label === "Delete issue") {
-          confirmDelete(issue, () =>
-            deleteIssue.mutate(issue.id, {
-              onSuccess: () => router.back(),
-            }),
-          );
-        }
-      },
-    );
-  }, [issue, wsSlug, deleteIssue]);
 
   return (
     <View className="flex-1 bg-background">
@@ -185,6 +218,26 @@ export default function IssueDetail() {
                    *  active tasks, so it doesn't crowd the header in the
                    *  common case. See agent-header-badge.tsx. */}
                   <AgentHeaderBadge issueId={id} />
+                  {/* Thread list button — shows count badge when threads exist */}
+                  {threadCount > 0 ? (
+                    <Pressable
+                      onPress={() => setThreadPanelVisible(true)}
+                      hitSlop={8}
+                      className="relative p-1"
+                      accessibilityLabel={`${threadCount} threads`}
+                    >
+                      <Ionicons
+                        name="chatbubbles-outline"
+                        size={20}
+                        className="text-foreground"
+                      />
+                      <View className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary items-center justify-center">
+                        <Text className="text-[10px] leading-3 font-bold text-primary-foreground">
+                          {threadCount}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ) : null}
                   <IconButton
                     name="ellipsis-horizontal"
                     onPress={onPressMore}
@@ -196,9 +249,7 @@ export default function IssueDetail() {
         }}
       />
       {detail.isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
-        </View>
+        <IssueDetailLoading />
       ) : detail.error || !issue ? (
         <View className="flex-1 items-center justify-center px-6 gap-3">
           <Text className="text-sm text-destructive text-center">
@@ -214,17 +265,28 @@ export default function IssueDetail() {
       ) : (
         <View className="flex-1">
           <TimelineList
+            ref={timelineRef}
             issue={issue}
             entries={timeline.data}
             timelineLoading={timeline.isLoading}
-            refreshing={detail.isRefetching || timeline.isRefetching}
+            refreshing={
+              (detail.isRefetching && !detail.isPlaceholderData) ||
+              timeline.isRefetching
+            }
             onRefresh={onRefresh}
-            isPinned={isPinned}
-            onMore={onPressMoreOverflow}
             highlightCommentId={highlight}
             highlightNonce={h}
           />
           <InlineCommentComposer issueId={id} />
+          <ThreadListPanel
+            visible={threadPanelVisible}
+            onClose={() => setThreadPanelVisible(false)}
+            rows={timelineRows}
+            onJumpToThread={handleJumpToThread}
+            onResolve={handleResolveThread}
+            topInset={insets.top}
+            bottomInset={insets.bottom}
+          />
         </View>
       )}
     </View>

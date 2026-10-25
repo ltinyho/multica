@@ -556,9 +556,13 @@ export function useCreateIssue() {
 
   return useMutation({
     mutationFn: (body: CreateIssueRequest) => api.createIssue(body),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: issueKeys.myAll(wsId) });
       qc.invalidateQueries({ queryKey: inboxKeys.all(wsId) });
+      // If this was a sub-issue creation, invalidate the parent's children cache.
+      if (vars.parent_issue_id) {
+        qc.invalidateQueries({ queryKey: issueKeys.children(wsId, vars.parent_issue_id) });
+      }
     },
   });
 }

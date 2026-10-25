@@ -28,6 +28,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Image as RNImage, Pressable, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import type { Attachment } from "@multica/core/types";
+import { resolveDownloadUrl } from "@/lib/urls";
 import { useLightbox } from "./lightbox-provider";
 
 interface Props {
@@ -43,7 +44,7 @@ export function MarkdownImage({ uri, attachments }: Props) {
   const resolvedUri = useMemo(() => {
     if (!attachments || attachments.length === 0) return uri;
     const match = attachments.find((a) => a.url === uri);
-    return match?.download_url || uri;
+    return match ? resolveDownloadUrl(match.download_url) : uri;
   }, [uri, attachments]);
 
   useEffect(() => {

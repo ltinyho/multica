@@ -19,7 +19,10 @@
  */
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
-import { showActionSheetWithOptions } from "@/lib/action-sheet";
+import {
+  showActionSheetWithOptions,
+  type ActionSheetItem,
+} from "@/lib/action-sheet";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -73,26 +76,33 @@ export function useCommentLongPress(
       | { kind: "delete" }
       | { kind: "cancel" };
 
-    const options: string[] = [];
+    const options: ActionSheetItem[] = [];
     const actions: Action[] = [];
-    const push = (label: string, action: Action) => {
-      options.push(label);
+    const push = (
+      label: string,
+      action: Action,
+      icon?: ActionSheetItem["icon"],
+    ) => {
+      options.push({ label, icon });
       actions.push(action);
     };
 
-    push("Reply", { kind: "reply" });
-    push("React…", { kind: "react" });
+    push("Reply", { kind: "reply" }, "arrow-undo-outline");
+    push("React…", { kind: "react" }, "happy-outline");
     if (hasContent) {
-      push("Copy", { kind: "copy" });
-      push("Select Text", { kind: "select" });
+      push("Copy", { kind: "copy" }, "copy-outline");
+      push("Select Text", { kind: "select" }, "text-outline");
     }
-    if (canCopyLink) push("Copy Link", { kind: "copyLink" });
+    if (canCopyLink)
+      push("Copy Link", { kind: "copyLink" }, "link-outline");
     if (isRoot) {
-      push(resolved ? "Unresolve Thread" : "Resolve Thread", {
-        kind: "resolve",
-      });
+      push(
+        resolved ? "Unresolve Thread" : "Resolve Thread",
+        { kind: "resolve" },
+        resolved ? "refresh-outline" : "checkmark-circle-outline",
+      );
     }
-    if (isOwn) push("Delete", { kind: "delete" });
+    if (isOwn) push("Delete", { kind: "delete" }, "trash-outline");
     push("Cancel", { kind: "cancel" });
 
     const cancelButtonIndex = options.length - 1;
@@ -160,7 +170,7 @@ export function useCommentLongPress(
             return;
           case "copyLink": {
             if (!canCopyLink) return;
-            const url = `${WEB_URL}/${wsSlug}/issue/${issueIdentifier}#comment-${entry.id}`;
+            const url = `${WEB_URL}/${wsSlug}/issues/${issueId}#comment-${entry.id}`;
             Clipboard.setStringAsync(url);
             Haptics.notificationAsync(
               Haptics.NotificationFeedbackType.Success,

@@ -29,6 +29,7 @@ import { useMemo } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLightbox } from "@/lib/markdown/lightbox-provider";
+import { resolveDownloadUrl } from "@/lib/urls";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { Text } from "@/components/ui/text";
@@ -194,7 +195,7 @@ function AttachmentChipView({ item, onRemove, onRetry }: AttachmentChipProps) {
       // no signed-URL round-trip, works the same pre/post upload.
       open(item.localUri);
     } else if (item.downloadUrl) {
-      void Linking.openURL(item.downloadUrl);
+      void Linking.openURL(resolveDownloadUrl(item.downloadUrl));
     }
   };
 

@@ -6,7 +6,8 @@
  * sit under the `issues/<wsId>` prefix — WS handlers can invalidate the
  * whole subtree with one call when needed.
  */
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type QueryClient } from "@tanstack/react-query";
+import type { Issue } from "@multica/core/types";
 import { api } from "@/data/api";
 import { issueKeys } from "./issue-keys";
 
@@ -38,6 +39,44 @@ export const issueDetailOptions = (wsId: string | null, id: string) =>
   queryOptions({
     queryKey: issueKeys.detail(wsId, id),
     queryFn: ({ signal }) => api.getIssue(id, { signal }),
+    enabled: !!wsId && !!id,
+  });
+
+/**
+ * Find an issue that is already sitting in one of the list caches
+ * (workspace list, project issues, My Issues scopes, sub-issues). Detail
+ * screens use it as `placeholderData` so tapping a row renders the header
+ * immediately instead of a blank spinner while `getIssue` is in flight.
+ * `id` may be a UUID or a human identifier (`MUL-123`) — deep links and
+ * inbox taps use either.
+ */
+export function findCachedIssue(
+  qc: QueryClient,
+  wsId: string | null,
+  id: string,
+): Issue | undefined {
+  if (!wsId || !id) return undefined;
+  const entries = [
+    ...qc.getQueriesData<unknown>({ queryKey: issueKeys.list(wsId) }),
+    ...qc.getQueriesData<unknown>({ queryKey: issueKeys.myAll(wsId) }),
+    ...qc.getQueriesData<unknown>({
+      queryKey: [...issueKeys.all(wsId), "children"],
+    }),
+  ];
+  for (const [, data] of entries) {
+    if (!Array.isArray(data)) continue;
+    const hit = (data as Issue[]).find(
+      (issue) => issue?.id === id || issue?.identifier === id,
+    );
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
+export const childIssuesOptions = (wsId: string | null, id: string) =>
+  queryOptions({
+    queryKey: issueKeys.children(wsId, id),
+    queryFn: ({ signal }) => api.listChildIssues(id, { signal }),
     enabled: !!wsId && !!id,
   });
 

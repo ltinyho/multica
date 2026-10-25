@@ -25,7 +25,8 @@
  *                            causes spurious reconnect storms)
  *   NetInfo offline → online edge → force reconnect (don't wait for TCP
  *                                    keepalive timeout to notice the dead
- *                                    socket after wifi↔cellular handoff)
+ *                                    socket)
+ *   NetInfo type change (wifi ↔ cellular) while online → force reconnect
  *
  * Provider does NOT register business event handlers — those live in
  * per-feature hooks (use-inbox-realtime, etc.) so the realtime layer
@@ -64,6 +65,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   // offline → online EDGE, not on every change event (NetInfo fires for
   // wifi strength changes, type changes, etc).
   const lastConnectedRef = useRef<boolean | null>(null);
+  const lastNetTypeRef = useRef<string | null>(null);
 
   // Android background pause timer — the foreground service already covers
   // background inbox delivery, so keeping the socket open is redundant and
@@ -129,15 +131,31 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
       // ── NetInfo ─────────────────────────────────────────────────
       lastConnectedRef.current = null;
+      lastNetTypeRef.current = null;
       netInfoUnsub = NetInfo.addEventListener((state) => {
         const isConnected = state.isConnected === true;
         const previous = lastConnectedRef.current;
+        const previousType = lastNetTypeRef.current;
         lastConnectedRef.current = isConnected;
+        lastNetTypeRef.current = state.type;
         // Edge: false → true. First event (previous === null) is
         // skipped — connect()/resume() above already handle the
         // initial state.
         if (previous === false && isConnected) {
           console.info("[realtime] netinfo: back online → forceReconnect");
+          ws?.forceReconnect();
+          return;
+        }
+        // wifi ↔ cellular handoff often never reports offline, but the old
+        // socket is bound to the dead interface and goes silent.
+        if (
+          isConnected &&
+          previousType !== null &&
+          previousType !== state.type
+        ) {
+          console.info(
+            `[realtime] netinfo: ${previousType} → ${state.type} → forceReconnect`,
+          );
           ws?.forceReconnect();
         }
       });

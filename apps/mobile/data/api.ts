@@ -17,19 +17,28 @@ import type {
   Agent,
   AgentTask,
   Attachment,
+  Autopilot,
+  AutopilotRun,
+  AutopilotTrigger,
   ChatMessage,
   ChatPendingTask,
   ChatSession,
   Comment,
+  CreateAgentRequest,
+  CreateAutopilotRequest,
+  CreateAutopilotTriggerRequest,
   CreateIssueRequest,
   CreateLabelRequest,
   CreateProjectRequest,
   CreateProjectResourceRequest,
+  GetAutopilotResponse,
   InboxItem,
   Issue,
   IssueLabelsResponse,
   Label,
   IssueReaction,
+  ListAutopilotRunsResponse,
+  ListAutopilotsResponse,
   ListIssuesParams,
   ListIssuesResponse,
   ListLabelsResponse,
@@ -43,14 +52,19 @@ import type {
   Reaction,
   ReorderPinsRequest,
   RuntimeDevice,
+  RuntimeModelListRequest,
   SearchIssuesResponse,
   SearchProjectsResponse,
   SendChatMessageResponse,
   Squad,
+  SquadMember,
   NotificationPreferenceResponse,
   NotificationPreferences,
   TaskMessagePayload,
   TimelineEntry,
+  UpdateAgentRequest,
+  UpdateAutopilotRequest,
+  UpdateAutopilotTriggerRequest,
   UpdateIssueRequest,
   UpdateMeRequest,
   UpdateProjectRequest,
@@ -108,6 +122,7 @@ import {
   PinnedItemSchema,
   ProjectSchema,
   RuntimeListSchema,
+  RuntimeModelListRequestSchema,
   SearchIssuesResponseSchema,
   SearchProjectsResponseSchema,
   SendChatMessageResponseSchema,
@@ -509,6 +524,57 @@ class ApiClient {
     });
   }
 
+  async initiateListModels(
+    runtimeId: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<RuntimeModelListRequest> {
+    const raw = await this.fetch<unknown>(`/api/runtimes/${runtimeId}/models`, {
+      method: "POST",
+      signal: opts?.signal,
+    });
+    return parseWithFallback(
+      raw,
+      RuntimeModelListRequestSchema,
+      {
+        id: "",
+        runtime_id: runtimeId,
+        status: "failed",
+        models: [],
+        supported: true,
+        error: "Invalid model discovery response",
+        created_at: "",
+        updated_at: "",
+      },
+      { endpoint: "initiateListModels" },
+    );
+  }
+
+  async getListModelsResult(
+    runtimeId: string,
+    requestId: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<RuntimeModelListRequest> {
+    const raw = await this.fetch<unknown>(
+      `/api/runtimes/${runtimeId}/models/${requestId}`,
+      { signal: opts?.signal },
+    );
+    return parseWithFallback(
+      raw,
+      RuntimeModelListRequestSchema,
+      {
+        id: requestId,
+        runtime_id: runtimeId,
+        status: "failed",
+        models: [],
+        supported: true,
+        error: "Invalid model discovery response",
+        created_at: "",
+        updated_at: "",
+      },
+      { endpoint: "getListModelsResult" },
+    );
+  }
+
   // Workspace-wide active agent tasks + each agent's most recent terminal —
   // feeds the workload dimension of presence (currently unused in the mobile
   // dot; reserved for the P1 long-press peek sheet). Listed here now so the
@@ -534,6 +600,98 @@ class ApiClient {
     });
   }
 
+  // --- Agent CRUD ---
+
+  async getAgent(id: string): Promise<Agent> {
+    return this.fetch<Agent>(`/api/agents/${id}`);
+  }
+
+  async createAgent(data: CreateAgentRequest): Promise<Agent> {
+    return this.fetch<Agent>("/api/agents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAgent(id: string, data: UpdateAgentRequest): Promise<Agent> {
+    return this.fetch<Agent>(`/api/agents/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async cancelAgentTasks(id: string): Promise<{ cancelled: number }> {
+    return this.fetch<{ cancelled: number }>(`/api/agents/${id}/cancel-tasks`, {
+      method: "POST",
+    });
+  }
+
+  async archiveAgent(id: string): Promise<Agent> {
+    return this.fetch<Agent>(`/api/agents/${id}/archive`, {
+      method: "POST",
+    });
+  }
+
+  // --- Squad CRUD ---
+
+  async getSquad(id: string): Promise<Squad> {
+    return this.fetch<Squad>(`/api/squads/${id}`);
+  }
+
+  async createSquad(data: { name: string; description?: string; leader_id: string; avatar_url?: string }): Promise<Squad> {
+    return this.fetch<Squad>("/api/squads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateSquad(id: string, data: { name?: string; description?: string; instructions?: string; leader_id?: string; avatar_url?: string }): Promise<Squad> {
+    return this.fetch<Squad>(`/api/squads/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteSquad(id: string): Promise<void> {
+    await this.fetch<void>(`/api/squads/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  // --- Squad Members ---
+
+  async listSquadMembers(squadId: string): Promise<SquadMember[]> {
+    return this.fetch<SquadMember[]>(`/api/squads/${squadId}/members`);
+  }
+
+  async addSquadMember(squadId: string, data: { member_type: string; member_id: string; role?: string }): Promise<SquadMember> {
+    return this.fetch<SquadMember>(`/api/squads/${squadId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async removeSquadMember(squadId: string, data: { member_type: string; member_id: string }): Promise<void> {
+    await this.fetch<void>(`/api/squads/${squadId}/members`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateSquadMemberRole(squadId: string, data: { member_type: string; member_id: string; role: string }): Promise<SquadMember> {
+    return this.fetch<SquadMember>(`/api/squads/${squadId}/members/role`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  }
+
   // --- Issues ---
   async listIssues(
     params: ListIssuesParams = {},
@@ -551,6 +709,17 @@ class ApiClient {
       } else {
         search.set(k, String(v));
       }
+    }
+    // Map TypeScript field names to server query param names (matching web's
+    // explicit mapping in packages/core/api/client.ts:477-478). The server
+    // reads `sort` and `direction`, not `sort_by` / `sort_direction`.
+    if (params.sort_by) {
+      search.delete("sort_by");
+      search.set("sort", params.sort_by);
+    }
+    if (params.sort_direction) {
+      search.delete("sort_direction");
+      search.set("direction", params.sort_direction);
     }
     const qs = search.toString();
     const raw = await this.fetch<unknown>(
@@ -802,6 +971,17 @@ class ApiClient {
   // short-circuits 204 → undefined (api.ts:270), so no body parsing needed.
   async deleteIssue(id: string): Promise<void> {
     await this.fetch<void>(`/api/issues/${id}`, { method: "DELETE" });
+  }
+
+  // --- Child issues ---
+  async listChildIssues(id: string, opts?: { signal?: AbortSignal }): Promise<Issue[]> {
+    const raw = await this.fetchValidated(
+      `/api/issues/${id}/children`,
+      ListIssuesResponseSchema,
+      EMPTY_LIST_ISSUES_RESPONSE,
+      { ...opts, endpoint: "GET /api/issues/:id/children" },
+    );
+    return raw.issues;
   }
 
   // --- Labels ---
@@ -1256,6 +1436,71 @@ class ApiClient {
       throw new ApiError("Upload response invalid", res.status, json);
     }
     return parsed.data;
+  }
+
+  // ── Autopilots ──────────────────────────────────────────────────────────
+
+  async listAutopilots(): Promise<ListAutopilotsResponse> {
+    return this.fetch<ListAutopilotsResponse>("/api/autopilots");
+  }
+
+  async getAutopilot(id: string): Promise<GetAutopilotResponse> {
+    return this.fetch<GetAutopilotResponse>(`/api/autopilots/${id}`);
+  }
+
+  async createAutopilot(body: CreateAutopilotRequest): Promise<Autopilot> {
+    return this.fetch<Autopilot>("/api/autopilots", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updateAutopilot(id: string, body: UpdateAutopilotRequest): Promise<Autopilot> {
+    return this.fetch<Autopilot>(`/api/autopilots/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteAutopilot(id: string): Promise<void> {
+    await this.fetch<void>(`/api/autopilots/${id}`, { method: "DELETE" });
+  }
+
+  async triggerAutopilot(id: string): Promise<{ run_id: string }> {
+    return this.fetch<{ run_id: string }>(`/api/autopilots/${id}/trigger`, {
+      method: "POST",
+    });
+  }
+
+  async listAutopilotRuns(autopilotId: string): Promise<ListAutopilotRunsResponse> {
+    return this.fetch<ListAutopilotRunsResponse>(`/api/autopilots/${autopilotId}/runs`);
+  }
+
+  async createAutopilotTrigger(
+    autopilotId: string,
+    body: CreateAutopilotTriggerRequest,
+  ): Promise<AutopilotTrigger> {
+    return this.fetch<AutopilotTrigger>(`/api/autopilots/${autopilotId}/triggers`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async updateAutopilotTrigger(
+    autopilotId: string,
+    triggerId: string,
+    body: UpdateAutopilotTriggerRequest,
+  ): Promise<AutopilotTrigger> {
+    return this.fetch<AutopilotTrigger>(`/api/autopilots/${autopilotId}/triggers/${triggerId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  }
+
+  async deleteAutopilotTrigger(autopilotId: string, triggerId: string): Promise<void> {
+    await this.fetch<void>(`/api/autopilots/${autopilotId}/triggers/${triggerId}`, {
+      method: "DELETE",
+    });
   }
 }
 

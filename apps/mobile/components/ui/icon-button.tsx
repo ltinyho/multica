@@ -13,6 +13,7 @@ import { type ComponentProps } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@react-navigation/native";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface Props extends Omit<ButtonProps, "children" | "size"> {
   name: ComponentProps<typeof Ionicons>["name"];
@@ -24,13 +25,19 @@ interface Props extends Omit<ButtonProps, "children" | "size"> {
 
 export function IconButton({
   name,
-  iconSize = 20,
+  iconSize = 22,
   color,
+  className,
   ...buttonProps
 }: Props) {
   const { colors } = useTheme();
   return (
-    <Button variant="ghost" size="icon" {...buttonProps}>
+    <Button
+      variant="ghost"
+      size="icon"
+      className={cn("h-11 w-11", className)}
+      {...buttonProps}
+    >
       <Ionicons name={name} size={iconSize} color={color ?? colors.text} />
     </Button>
   );
